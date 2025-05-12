@@ -1,0 +1,2 @@
+https://www.kaggle.com/datasets/notlucasp/financial-news-headlines/data
+https://github.com/Zdong104/FNSPID_Financial_News_Dataset

@@ -1,0 +1,17 @@
+[INFO] Number of rows in table: 15,549,299
+
+[INFO] Column names of table:
+['Unnamed: 0', 'Date', 'Article_title', 'Stock_symbol', 'Url', 'Publisher', 'Author', 'Article', 'Lsa_summary', 'Luhn_summary', 'Textrank_summary', 'Lexrank_summary']
+
+[INFO] Number of None values in each column:
+Date: 0
+Article_title: 1
+Stock_symbol: 9804627
+Url: 686
+Publisher: 11522656
+Author: 14362984
+Article: 11809209
+Lsa_summary: 13057522
+Luhn_summary: 13057521
+Textrank_summary: 13057521
+Lexrank_summary: 13057521
