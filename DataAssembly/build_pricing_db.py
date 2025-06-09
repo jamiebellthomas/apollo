@@ -2,28 +2,21 @@ import pandas as pd
 import sqlite3
 import yfinance as yf
 from time import sleep
-
-# === Configuration ===
-
-CSV_PATH = "Data/filtered_sp500_finbert_style.csv"  # CSV is in the sibling 'Data' directory
-DB_PATH = "Data/momentum_data.db"  # Output DB will be in Data directory 
-TABLE_NAME = "daily_prices"
-START_DATE = "2012-01-01"
-END_DATE = "2024-12-31"
-REQUIRED_ROW_COUNT = 3269
-
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import config
 
 # === Step 1: Load Ticker List ===
-df = pd.read_csv(CSV_PATH)
+df = pd.read_csv(config.METADATA_CSV_FILEPATH)
 tickers = df['Symbol'].unique()
 
 # === Step 2: Connect to SQLite DB ===
-conn = sqlite3.connect(DB_PATH)
+conn = sqlite3.connect(config.DB_PATH)
 cursor = conn.cursor()
 
 # === Step 3: Create Table (if not exists) ===
 cursor.execute(f"""
-CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
+CREATE TABLE IF NOT EXISTS {config.PRICING_TABLE_NAME} (
     ticker TEXT,
     date DATE,
     adjusted_close REAL,
@@ -37,7 +30,7 @@ for ticker in tickers:
     print(f"Processing {ticker}...")
 
     try:
-        data = yf.download(ticker, start=START_DATE, end=END_DATE, progress=False)
+        data = yf.download(ticker, start=config.START_DATE, end=config.END_DATE, progress=False)
         if data.empty:
             print(f" - No data for {ticker}")
             continue
@@ -50,13 +43,13 @@ for ticker in tickers:
         df_prices['date'] = pd.to_datetime(df_prices['date'])
 
         # === NEW FILTER: Only accept if exactly 3269 rows ===
-        if len(df_prices) != REQUIRED_ROW_COUNT:
-            print(f" - Skipped: has {len(df_prices)} rows (requires {REQUIRED_ROW_COUNT})")
+        if len(df_prices) != config.REQUIRED_ROW_COUNT:
+            print(f" - Skipped: has {len(df_prices)} rows (requires {config.REQUIRED_ROW_COUNT})")
             continue
 
         # Remove already-inserted dates
         existing_dates = pd.read_sql_query(
-            f"SELECT date FROM {TABLE_NAME} WHERE ticker = ?",
+            f"SELECT date FROM {config.PRICING_TABLE_NAME} WHERE ticker = ?",
             conn, params=(ticker,)
         )
         existing_dates = pd.to_datetime(existing_dates['date']).dt.date
@@ -67,7 +60,7 @@ for ticker in tickers:
             continue
 
         # Insert new rows
-        df_prices.to_sql(TABLE_NAME, conn, if_exists='append', index=False)
+        df_prices.to_sql(config.PRICING_TABLE_NAME, conn, if_exists='append', index=False)
         print(f" - Inserted {len(df_prices)} new rows.")
 
         sleep(1)  # polite delay to avoid throttling

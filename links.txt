@@ -1,2 +1,5 @@
 https://www.kaggle.com/datasets/notlucasp/financial-news-headlines/data
 https://github.com/Zdong104/FNSPID_Financial_News_Dataset
+
+wget https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_price/full_history.zip
+wget https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv
