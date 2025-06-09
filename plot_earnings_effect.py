@@ -21,7 +21,7 @@ examples = {
     'META': '2022-10-26',  # Q3 2022 earnings
 }
 
-def plot_earnings_reaction(ticker, earnings_date, quarter:str, days_before=10, days_after=10):
+def plot_earnings_reaction(ticker, earnings_date, quarter:str, days_before=10, days_after=80):
     earnings_dt = datetime.strptime(earnings_date, '%Y-%m-%d')
 
     start = earnings_dt - timedelta(days=days_before + 3)
