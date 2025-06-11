@@ -28,7 +28,7 @@ def extract():
 
 def see_which_have_existed_for_long_enough():
     """
-    Check which companies have existed long enough to have at least 3269 trading days.
+    Check which companies have existed long enough to have at least 3269 trading days, those that have not are removed from the metadata file
     """
     downloaded = pd.read_csv(config.METADATA_CSV_FILEPATH)
     downloaded_tickers = downloaded['Symbol'].unique()
@@ -42,16 +42,20 @@ def see_which_have_existed_for_long_enough():
     existing_tickers = [row[0] for row in cursor.fetchall()]
     conn.close()
 
-    # Now see which ones were removed in the filter process
+    # Now see which are in downloaded but not in existing_tickers
+    missing_tickers = set(downloaded_tickers) - set(existing_tickers)
+    # Remove missing tickers from downloaded DataFrame
+    downloaded = downloaded[~downloaded['Symbol'].isin(missing_tickers)]
+    # And write the cleaned DataFrame back to CSV
+    downloaded.to_csv(config.METADATA_CSV_FILEPATH, index=False)
 
-    filtered_tickers = set(downloaded_tickers) & set(existing_tickers)
-    print(f"Filtered tickers that have sufficient data: {len(filtered_tickers)}")
+    return missing_tickers
 
-    return filtered_tickers
+def main():
+    """
+    Main function to run the extraction and filtering process.
+    """
+    print("[INFO] Starting extraction of S&P 500 companies in target sectors from Wikipedia...")
+    extract()
 
-if __name__ == "__main__":
-
-    filtered_tickers = see_which_have_existed_for_long_enough()
-    print(f"Filtered tickers: {filtered_tickers}")
     
-
