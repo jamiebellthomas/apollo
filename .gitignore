@@ -7,3 +7,6 @@ passwords.txt
 *.log
 *.json
 .env
+/SEC_Downloads/
+/sec-edgar-filings/
+config.py
