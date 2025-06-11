@@ -13,8 +13,9 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 import platform
 import pandas as pd
+import sqlite3
 
-def start_sec_search(ticker):
+def sec_search(ticker):
     chrome_options = Options()
     chrome_options.add_argument("--start-maximized")
     driver = webdriver.Chrome(options=chrome_options)
@@ -103,26 +104,27 @@ def start_sec_search(ticker):
                 })
         except Exception:
             continue
-
+    print(f"✅ Found {len(results)} 10-Q filings for {ticker}.")
     driver.quit()
     df = pd.DataFrame(results)
     return df
 
+def generate_from_scratch():
 
-
-
-if __name__ == "__main__":
-
-    # Get a list of tickers from filtered_sp500_metadata.csv
-    metadata_df = pd.read_csv(config.METADATA_CSV_FILEPATH)
-    tickers = metadata_df['Symbol'].unique()
+    # Open the database and get the unique tickers from the metadata CSV
+    conn = sqlite3.connect(config.DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT DISTINCT ticker FROM {config.PRICING_TABLE_NAME}")
+    tickers = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    print(f"Found {len(tickers)} unique tickers in the database.")
     all_dfs = []
 
-    print(f"Found {len(tickers)} unique tickers in metadata.")
+
     for index,ticker in enumerate(tickers):
         print(f"Processing ticker: {ticker} ({index + 1}/{len(tickers)})")
         try:
-            results = start_sec_search(ticker)
+            results = sec_search(ticker)
             if not results.empty:
                 all_dfs.append(results)
                 print(f"Found {len(results)} 10-Q results for {ticker}.")
@@ -140,5 +142,61 @@ if __name__ == "__main__":
     if all_dfs:
         final_df = pd.concat(all_dfs, ignore_index=True)
         final_df.to_csv(config.FILING_DATES_AND_URLS_CSV, index=False)
+
+def add_to_existing(ticker):
+
+    """
+    Add a single ticker's 10-Q filings to the existing CSV.
+    """
+    try:
+        results = sec_search(ticker)
+        if not results.empty:
+            # concatenate with existing CSV
+            if os.path.exists(config.FILING_DATES_AND_URLS_CSV):
+                existing_df = pd.read_csv(config.FILING_DATES_AND_URLS_CSV)
+                results = pd.concat([existing_df, results], ignore_index=True)
+            results.to_csv(config.FILING_DATES_AND_URLS_CSV, index=False)
+        else:
+            print(f"No 10-Q filings found for {ticker}.")
+    except Exception as e:
+        print(f"Error adding {ticker}: {e}")
+
+def add_missing_tickers():
+
+    """
+    This adds collects the filings and filing dates for tickers that are in the database but not in the existing CSV.
+    """
+    # Go through unique tickers in config.DB_PATH and see which are missing in config.FILING_DATES_AND_URLS_CSV
+    conn = sqlite3.connect(config.DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT DISTINCT ticker FROM {config.PRICING_TABLE_NAME}")
+    existing_tickers = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    # Make sure the CSV exists
+    if not os.path.exists(config.FILING_DATES_AND_URLS_CSV):
+        print(f"[ERROR] {config.FILING_DATES_AND_URLS_CSV} does not exist. Please run generate_from_scratch() first.")
+        return
+    
+    existing_df = pd.read_csv(config.FILING_DATES_AND_URLS_CSV)
+    existing_tickers_in_csv = existing_df['Ticker'].unique().tolist()
+    missing_tickers = set(existing_tickers) - set(existing_tickers_in_csv)
+    print(f"Found {len(missing_tickers)} missing tickers to add from the database.")
+    for ticker in missing_tickers:
+        print(f"Adding missing ticker: {ticker}")
+        add_to_existing(ticker)
+
+
+
+
+
+
+if __name__ == "__main__":
+
+    add_missing_tickers()
+
+
+
+    
 
 
