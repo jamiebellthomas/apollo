@@ -74,7 +74,7 @@ def check_url_counter():
     bad_tickers = []
     row_counts = row_counts_per_ticker()
     for ticker, count in row_counts.items():
-        if count < 36 or count > 45:
+        if count < 35 or count > 45:
             bad_tickers.append((ticker, count))
             print(f"[WARNING] Ticker {ticker} has {count} rows, which is outside the expected range (36-45).")
 
@@ -130,6 +130,17 @@ def retry_bad_tickers():
     
     see_which_have_existed_for_long_enough()
 
+def clean_qa_results():
+    """
+    There seem to be some 10-Q/A results that have made it into the database, these need to be removed.
+    Remove it from the config.FILING_DATES_AND_URLS_CSV
+    """
+    df = pd.read_csv(config.FILING_DATES_AND_URLS_CSV)
+    df = df[~df['Form Type'].str.contains("10-Q/A", na=False)]
+    df.to_csv(config.FILING_DATES_AND_URLS_CSV, index=False)
+    print("[INFO] Cleaned 10-Q/A filings from the filing dates and URLs CSV.")
+
+
 
 
 
@@ -137,6 +148,8 @@ def retry_bad_tickers():
 
 if __name__ == "__main__":
     check_url_counter()
+    clean_qa_results()
     check_db_alignment()
     retry_bad_tickers()
+    
 

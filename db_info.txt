@@ -15,3 +15,10 @@ Lsa_summary: 13057522
 Luhn_summary: 13057521
 Textrank_summary: 13057521
 Lexrank_summary: 13057521
+
+
+
+[INFO] Cleaning the SQLite database...
+[INFO] Current row count in news_articles: 87573645
+[INFO] New row count in news_articles: 51625
+[DONE] News articles database built successfully.
