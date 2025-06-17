@@ -63,6 +63,9 @@ def sec_search(ticker_list):
                 end_input.send_keys("12-31-2024")
                 print("✅ Date range set.")
 
+            
+            # --- 1. Collect 10-Qs ---
+
             form_section = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[@data-toggle='collapse' and contains(@href, '#collapseTwo2')]")))
             form_section.click()
             time.sleep(1)
@@ -97,6 +100,47 @@ def sec_search(ticker_list):
 
             print(f"✅ Found {len(results)} 10-Q filings for {ticker}")
             all_dfs.append(pd.DataFrame(results))
+
+            # --- 2. Clear 10-Q filter ---
+            clear_10q = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-button="10-Q"]')))
+            clear_10q.click()
+            time.sleep(1)
+
+            # --- 3. Collect 10-Ks ---
+            form_section = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[@data-toggle='collapse' and contains(@href, '#collapseTwo2')]")))
+            form_section.click()
+            time.sleep(1)
+            form_section.click()
+            tenk_filter = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'a[data-filter-key="10-K"]')))
+            driver.execute_script("arguments[0].scrollIntoView(true);", tenk_filter)
+            tenk_filter.click()
+            print("✅ Filtered for 10-K forms.")
+            time.sleep(1)
+            rows = driver.find_elements(By.CSS_SELECTOR, "tr")
+            results = []
+            for row in rows:
+                try:
+                    link = row.find_element(By.CSS_SELECTOR, "a.preview-file")
+                    if "10-K" in link.text:
+                        url = link.get_attribute("href")
+                        tds = row.find_elements(By.TAG_NAME, "td")
+                        filed_date = tds[1].text if len(tds) > 1 else ""
+                        reporting_date = tds[2].text if len(tds) > 2 else ""
+                        results.append({
+                            "Ticker": ticker,
+                            "Form Type": link.text,
+                            "Filed Date": filed_date,
+                            "Reporting Date": reporting_date,
+                            "URL": url
+                        })
+                except Exception:
+                    continue
+            print(f"✅ Found {len(results)} 10-K filings for {ticker}")
+            all_dfs.append(pd.DataFrame(results))
+            # --- 4. Clear 10-K filter ---
+            clear_10k = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-button="10-K"]')))
+            clear_10k.click()
+            time.sleep(1)
 
         except Exception as e:
             print(f"❌ Error processing {ticker}: {e}")
@@ -148,7 +192,7 @@ def add_to_existing(ticker_list):
             updated_df = pd.concat([existing_df, results], ignore_index=True)
             # Write the updated DataFrame back to the CSV
             updated_df.to_csv(config.FILING_DATES_AND_URLS_CSV, index=False)
-            print(f"✅ Successfully added {len(results)} filings for {ticker_list[0]} to the existing CSV.")
+            print(f"✅ Successfully added {len(results)} filings to the existing CSV.")
 
     except Exception as e:
         print(f"Error adding data: {e}")
