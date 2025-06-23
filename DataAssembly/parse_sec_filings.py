@@ -20,6 +20,7 @@ def check_eps_formatting(eps_data: str) -> bool:
     """
     Check if the EPS data is in the correct format.
     The expected format is 'basic_eps: value, diluted_eps: value'.
+    Accepts negative numbers and 'None' as valid values.
     """
     if not eps_data:
         return False
@@ -34,15 +35,20 @@ def check_eps_formatting(eps_data: str) -> bool:
     if not basic_eps_part.startswith("basic_eps: ") or not diluted_eps_part.startswith("diluted_eps: "):
         return False
 
-    # Check if the values are valid numbers or None
-    basic_eps_value = basic_eps_part.split(":")[1].strip()
-    diluted_eps_value = diluted_eps_part.split(":")[1].strip()
-    if basic_eps_value.lower() != "none" and not basic_eps_value.replace('.', '', 1).isdigit():
-        return False
-    if diluted_eps_value.lower() != "none" and not diluted_eps_value.replace('.', '', 1).isdigit():
-        return False
-    # If all checks passed, the format is correct
-    return True
+    basic_eps_value = basic_eps_part.split(":", 1)[1].strip()
+    diluted_eps_value = diluted_eps_part.split(":", 1)[1].strip()
+
+    def is_valid_number(val: str) -> bool:
+        if val.lower() == "none":
+            return True
+        try:
+            float(val)
+            return True
+        except ValueError:
+            return False
+
+    return is_valid_number(basic_eps_value) and is_valid_number(diluted_eps_value)
+
 
 def extract_eps_from_openai_result(eps_data: str) -> tuple[float, float]:
     """
@@ -61,9 +67,9 @@ def extract_eps_from_openai_result(eps_data: str) -> tuple[float, float]:
     return basic_eps, diluted_eps
 
 
-def build_eps_prompt(text: str) -> str:
-    return (
-        "I am about to send you all components relating to the earnings per share of a company. " \
+def build_eps_prompt(text: str, char_limit:int = 10000) -> str:
+
+    return ("I am about to send you all components relating to the earnings per share of a company. " \
             "Please summarize the earnings per share information, including both basic and diluted EPS. " \
             "I want you to return it as two separate values. The first value should be the basic EPS, " \
             "and the second value should be the diluted EPS. If either is not available, return None for that " \
@@ -71,8 +77,10 @@ def build_eps_prompt(text: str) -> str:
             "It is very important you stick to this formatting otherwise the output is invalid" \
             "DO NOT return any other text, just the values in the format specified. " \
             " For quarterly filings, the EPS is for the most recent quarter - not the rest of the year (e.g Six Months Ended / Nine Months Ended)" \
-            " the information: " + " ".join(text)
-    )
+            " It is also very important you spot negative EPS values, and return them as negative numbers, these are usually denoted by loss in the tables and may potentially be in brackets." \
+            " the information: " + " ".join(text))
+    
+
 
 
 
@@ -95,24 +103,41 @@ def extract_relevant_eps_data_html(query: str) -> str:
         
         # If node contains "earnings per share" in its text, print the node
 
-        if ("earnings per share" in node.text.lower() or "earnings per common share" in node.text.lower() or "financial statements" in node.text.lower() or "financial information" in node.text.lower()):
+        if ("earnings per share" in node.text.lower() or 
+            "earnings per common share" in node.text.lower()):
+
             node_type = str(node._semantic_element)
             # If the node type contains 'TextElement' skip it
-            if 'TextElement' in node_type:
+            if 'TextElement' in node_type or 'TopSectionTitleElement' in node_type:
                 continue
 
             # If it's a TitleElement, get the child nodes
             elif 'TitleElement' in node_type:
+
+                temp_text = node.text.replace("\xa0", " ")
+                # replace \u200b with a space
+                temp_text = temp_text.replace("\u200b", " ")
+                # replace \n with nothing
+                temp_text = temp_text.replace("\n", "")
+                text.append(temp_text)
+
                 for child in node.get_descendants():
-                    if 'EmptyElement' in str(child._semantic_element) or 'TextElement' in str(child._semantic_element):
-                        continue
-                    # remove and mentions of "\xa0" from the text
-                    temp_text = child.text.replace("\xa0", " ")
-                    # replace \u200b with a space
-                    temp_text = temp_text.replace("\u200b", " ")
-                    # replace \n with nothing
-                    temp_text = temp_text.replace("\n", "")
-                    text.append(temp_text)
+                    # print(f"[DEBUG] Found child node: {child._semantic_element}")
+                    if ('TableElement' in str(child._semantic_element)):
+                        
+                        # print(f"\t[DEBUG] Found TableElement child: {child._semantic_element}")
+                        # remove and mentions of "\xa0" from the text
+                        temp_text = child.text.replace("\xa0", " ")
+                        # replace \u200b with a space
+                        temp_text = temp_text.replace("\u200b", " ")
+                        # replace \n with nothing
+                        temp_text = temp_text.replace("\n", "")
+                        text.append(temp_text)
+                        # print(f"\t[DEBUG] Extracted node typeee: {child._semantic_element}, text: {temp_text}")
+                    else: 
+                        continue    
+                
+                
             
             else:
                 temp_text = node.text.replace("\xa0", " ")
@@ -124,13 +149,7 @@ def extract_relevant_eps_data_html(query: str) -> str:
 
     # Remove any empty strings from the list
     text = [t for t in text if t.strip()]
-
-    # If length is over 20, take the first 20 elements
-    if len(text) > 20:
-        print(f"[INFO] Extracted {len(text)} text blocks, truncating to 20 for prompt.")
-        text = text[:20]
-    else: 
-        print(f"[INFO] Extracted {len(text)} text blocks, using all for prompt.")
+    print(f"[INFO] Extracted {len(text)} text blocks, using all for prompt.")
     return text
 
 
@@ -148,12 +167,24 @@ def extract_eps_openai(prompt: str, provider: str = "groq", model: str = None) -
     :return: A list of extracted EPS strings.
     """
 
+    model_token_limits = {
+        "llama3-70b-8192": 8192,
+        "llama3-8b-8192": 8192,
+        "mixtral-8x7b-32768": 32768,
+        "gemma-7b-it": 8192
+    }
+
+    
+
     if provider == "groq":
         client = OpenAI(
             api_key=config.GROQ_API_KEY,
             base_url="https://api.groq.com/openai/v1"
         )
         model = model or "llama3-70b-8192"
+        max_tokens = model_token_limits.get(model, 8192)
+        prompt = prompt[:max_tokens]
+        
 
     elif provider == "openai":
         client = OpenAI(api_key=config.OPENAI_API_KEY)
@@ -172,6 +203,10 @@ def extract_eps_openai(prompt: str, provider: str = "groq", model: str = None) -
     )
 
     raw_output = response.choices[0].message.content.strip()
+    # remove and brackets from the output
+    raw_output = re.sub(r'[\[\]()]', '', raw_output)
+    # remove dollar signs
+    raw_output = re.sub(r'\$', '', raw_output)
     return raw_output
 
 
@@ -185,7 +220,7 @@ def extract_eps_data(text_blocks: list[str]) -> str:
         if check_eps_formatting(response):
             return extract_eps_from_openai_result(response)
         print(f"[WARN] Invalid format on attempt {attempt+1}, retrying...")
-        return (None, None)
+    return (None, None)
 
 
 
