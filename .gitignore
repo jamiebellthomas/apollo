@@ -1,5 +1,5 @@
 *.db
-*.csv
+Data/nasdaq_exteral_data.csv
 *.png
 *.jpg
 *.jpeg
