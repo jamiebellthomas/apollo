@@ -95,7 +95,7 @@ def extract_relevant_eps_data_html(query: str) -> str:
         
         # If node contains "earnings per share" in its text, print the node
 
-        if ("earnings per share" in node.text.lower() or "earnings per common share" in node.text.lower() or "financial results" in node.text.lower() or "financial statements" in node.text.lower()) and node.text.strip():
+        if ("earnings per share" in node.text.lower() or "earnings per common share" in node.text.lower()):
             node_type = str(node._semantic_element)
             # If the node type contains 'TextElement' skip it
             if 'TextElement' in node_type:
@@ -110,14 +110,17 @@ def extract_relevant_eps_data_html(query: str) -> str:
                     temp_text = child.text.replace("\xa0", " ")
                     # replace \u200b with a space
                     temp_text = temp_text.replace("\u200b", " ")
+                    # replace \n with nothing
+                    temp_text = temp_text.replace("\n", "")
                     text.append(temp_text)
             
             else:
                 temp_text = node.text.replace("\xa0", " ")
                 # replace \u200b with a space
                 temp_text = temp_text.replace("\u200b", " ")
+                # replace \n with nothing
+                temp_text = temp_text.replace("\n", "")
                 text.append(temp_text)
-
     return text
 
 
@@ -280,7 +283,7 @@ def main(start:int):
 
         
 
-        if index % 10 == 0:  # Print every 100 rows
+        if index % 5 == 0:  # Print every 100 rows
             percent = (index + 1) / total_rows * 100
             print(f"[INFO] Processing row {index + 1}/{total_rows} ({percent:.2f}%), Saving progress...")
             df.to_csv(config.EPS_DATA_CSV, index=False)  # Save progress
