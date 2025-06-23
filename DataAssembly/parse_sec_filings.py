@@ -95,7 +95,7 @@ def extract_relevant_eps_data_html(query: str) -> str:
         
         # If node contains "earnings per share" in its text, print the node
 
-        if ("earnings per share" in node.text.lower() or "earnings per common share" in node.text.lower()):
+        if ("earnings per share" in node.text.lower() or "earnings per common share" in node.text.lower() or "financial statements" in node.text.lower() or "financial information" in node.text.lower()):
             node_type = str(node._semantic_element)
             # If the node type contains 'TextElement' skip it
             if 'TextElement' in node_type:
@@ -121,6 +121,16 @@ def extract_relevant_eps_data_html(query: str) -> str:
                 # replace \n with nothing
                 temp_text = temp_text.replace("\n", "")
                 text.append(temp_text)
+
+    # Remove any empty strings from the list
+    text = [t for t in text if t.strip()]
+
+    # If length is over 20, take the first 20 elements
+    if len(text) > 20:
+        print(f"[INFO] Extracted {len(text)} text blocks, truncating to 20 for prompt.")
+        text = text[:20]
+    else: 
+        print(f"[INFO] Extracted {len(text)} text blocks, using all for prompt.")
     return text
 
 
@@ -194,7 +204,6 @@ def extract_eps(query:str) -> tuple[float, float]:
 
     # Extract relevant EPS data from the HTML content
     eps_text_data = extract_relevant_eps_data_html(query=query)
-    print(f"[INFO] Extracted {len(eps_text_data)} relevant blocks from the filing.")
 
     if eps_text_data:
         # Extract EPS values using OpenAI
