@@ -13,7 +13,10 @@ import subprocess
 import random
 from openai import OpenAI
 
+
 warnings.filterwarnings("ignore", category=UserWarning)
+
+CURRENT_MODEL_INDEX = 0
 
 
 def check_eps_formatting(eps_data: str) -> bool:
@@ -81,9 +84,6 @@ def build_eps_prompt(text: str, char_limit:int = 10000) -> str:
             " the information: " + " ".join(text))
     
 
-
-
-
 def extract_relevant_eps_data_html(query: str) -> str:
     """
     Query is a string in the format 'Ticker/AccessionNumber'
@@ -100,11 +100,15 @@ def extract_relevant_eps_data_html(query: str) -> str:
     text = []
     for node in tree.nodes:
         
-        
-        # If node contains "earnings per share" in its text, print the node
 
-        if ("earnings per share" in node.text.lower() or 
-            "earnings per common share" in node.text.lower()):
+        lowered_text = node.text.lower()
+
+        if (re.search(r"earnings\s+.*?\s+per\s+share", lowered_text) or 
+            re.search(r"earnings\s+.*?\s+per\s+common\s+share", lowered_text) or
+            re.search(r"income\s+.*?\s+per\s+share", lowered_text) or
+            "earnings per share" in node.text.lower() or 
+            "earnings per common share" in node.text.lower() or
+            "income per share" in node.text.lower()):
 
             node_type = str(node._semantic_element)
             # If the node type contains 'TextElement' skip it
@@ -153,9 +157,7 @@ def extract_relevant_eps_data_html(query: str) -> str:
     return text
 
 
-import openai
-
-def extract_eps_openai(prompt: str, provider: str = "groq", model: str = None) -> list[str]:
+def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
     """
     Extract basic and diluted EPS from a structured prompt using either OpenAI or Groq.
     
@@ -171,7 +173,8 @@ def extract_eps_openai(prompt: str, provider: str = "groq", model: str = None) -
         "llama3-70b-8192": 8192,
         "llama3-8b-8192": 8192,
         "mixtral-8x7b-32768": 32768,
-        "gemma-7b-it": 8192
+        "gemma-7b-it": 8192,
+        "llama-3.3-70b-versatile": 32768
     }
 
     
@@ -182,7 +185,7 @@ def extract_eps_openai(prompt: str, provider: str = "groq", model: str = None) -
             base_url="https://api.groq.com/openai/v1"
         )
         model = model or "llama3-70b-8192"
-        max_tokens = model_token_limits.get(model, 8192)
+        max_tokens = model_token_limits.get(model,8192)
         prompt = prompt[:max_tokens]
         
 
@@ -210,19 +213,37 @@ def extract_eps_openai(prompt: str, provider: str = "groq", model: str = None) -
     return raw_output
 
 
-def extract_eps_data(text_blocks: list[str]) -> str:
+def extract_eps_data(text_blocks: list[str]) -> tuple[float | None, float | None]:
+    """
+    Extract EPS data from text blocks using model fallback if rate limits are hit.
+    """
+    global CURRENT_MODEL_INDEX
+    models = ["llama3-70b-8192","llama-3.3-70b-versatile"]
     full_text = "\n\n".join(text_blocks)
     prompt = build_eps_prompt(full_text)
 
     for attempt in range(5):
-        response = extract_eps_openai(prompt).strip()
-        print(f"[INFO] Attempt {attempt+1}: Received response from OpenAI: {response}")
-        if check_eps_formatting(response):
-            return extract_eps_from_openai_result(response)
-        print(f"[WARN] Invalid format on attempt {attempt+1}, retrying...")
+        model = models[CURRENT_MODEL_INDEX]
+        print(f"[INFO] Attempt {attempt + 1}: Using model {model}")
+        try:
+            response = extract_eps_openai(prompt, model=model).strip()
+            print(f"[INFO] Received response: {response}")
+
+            if check_eps_formatting(response):
+                return extract_eps_from_openai_result(response)
+
+            print("[WARN] Invalid EPS format, retrying...")
+
+        except Exception as e:
+            if '429' in str(e):
+                CURRENT_MODEL_INDEX = (CURRENT_MODEL_INDEX + 1) % len(models)
+                print(f"[WARN] Rate limit hit, switching model to {models[CURRENT_MODEL_INDEX]}")
+                
+            else:
+                print(f"[ERROR] Unexpected error: {e}")
+                break
+
     return (None, None)
-
-
 
 def extract_eps(query:str) -> tuple[float, float]:
 
@@ -361,7 +382,7 @@ def main(start:int):
         print("[INFO] All rows processed successfully.")
 
 if __name__ == "__main__":
-    main(start=0)
+    main(start=100)
     # data = (extract_relevant_eps_data_html("https://www.sec.gov/Archives/edgar/data/820313/000155837024013696/aph-20240930x10q.htm"))
     # for i in data:
     #     print("-------------------")
