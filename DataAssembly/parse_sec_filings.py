@@ -9,8 +9,7 @@ import openai
 import pandas as pd
 import re
 import warnings
-import subprocess
-import random
+import time
 from openai import OpenAI
 
 
@@ -70,18 +69,23 @@ def extract_eps_from_openai_result(eps_data: str) -> tuple[float, float]:
     return basic_eps, diluted_eps
 
 
-def build_eps_prompt(text: str, char_limit:int = 10000) -> str:
+def build_eps_prompt(text: list[str]) -> str:
+    return (
+        "I am about to send you all components relating to the earnings per share of a company. "
+        "Please summarize the earnings per share information, including both basic and diluted EPS. "
+        "I want you to return it as two separate values. The first value should be the basic EPS, "
+        "and the second value should be the diluted EPS. If either is not available, return None for that "
+        "value. This must be returned in a specific format -> 'basic_eps: value, diluted_eps: value'. "
+        "It is very important you stick to this formatting otherwise the output is invalid. "
+        "DO NOT return any other text, just the values in the format specified. "
+        "For quarterly filings, the EPS is for the most recent quarter - not the rest of the year (e.g Six Months Ended / Nine Months Ended). "
+        "It is also very important you spot negative EPS values, and return them as negative numbers. These are usually denoted by loss in the tables and may potentially be in brackets. "
+        "The information: "
+        + " ".join(text)
+        + " AGAIN, DO NOT return any other text, just the values in the format specified."
+    )
 
-    return ("I am about to send you all components relating to the earnings per share of a company. " \
-            "Please summarize the earnings per share information, including both basic and diluted EPS. " \
-            "I want you to return it as two separate values. The first value should be the basic EPS, " \
-            "and the second value should be the diluted EPS. If either is not available, return None for that " \
-            "value. This must be returned in a specific format -> 'basic_eps: value, diluted_eps: value'.  " \
-            "It is very important you stick to this formatting otherwise the output is invalid" \
-            "DO NOT return any other text, just the values in the format specified. " \
-            " For quarterly filings, the EPS is for the most recent quarter - not the rest of the year (e.g Six Months Ended / Nine Months Ended)" \
-            " It is also very important you spot negative EPS values, and return them as negative numbers, these are usually denoted by loss in the tables and may potentially be in brackets." \
-            " the information: " + " ".join(text))
+            
     
 
 def extract_relevant_eps_data_html(query: str) -> str:
@@ -174,7 +178,9 @@ def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
         "llama3-8b-8192": 8192,
         "mixtral-8x7b-32768": 32768,
         "gemma-7b-it": 8192,
-        "llama-3.3-70b-versatile": 32768
+        "llama-3.3-70b-versatile": 32768,
+        "deepseek-r1-distill-llama-70b": 128000,
+        "qwen-qwq-32b": 128000,
     }
 
     
@@ -205,11 +211,30 @@ def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
         temperature=0.6
     )
 
+    usage = response.usage
+    print(f"Prompt tokens: {usage.prompt_tokens}, Completion tokens: {usage.completion_tokens}, Total: {usage.total_tokens}")
+
     raw_output = response.choices[0].message.content.strip()
     # remove and brackets from the output
     raw_output = re.sub(r'[\[\]()]', '', raw_output)
     # remove dollar signs
     raw_output = re.sub(r'\$', '', raw_output)
+
+    if len(raw_output) > 36:
+        # 36 is the upper limit for the output, so we will truncate it to the last 36 characters (34 chars plus two potential negative signs)
+        raw_output = raw_output[-36:]
+
+        # now count the number of negative signs in the output
+        negative_signs = raw_output.count('-')
+        # if there are two negative signs, it means the LLM has returned 2 negative values, so we need don't need to remove any chars
+        if negative_signs == 0:
+            # if there are no negative signs, we need to remove the first two characters
+            raw_output = raw_output[2:]
+        if negative_signs == 1:
+            # if there is only one negative sign, we need to remove the first character
+            raw_output = raw_output[1:]
+
+        # if input is malformed at this point the check_eps_formatting function will catch it
     return raw_output
 
 
@@ -218,7 +243,10 @@ def extract_eps_data(text_blocks: list[str]) -> tuple[float | None, float | None
     Extract EPS data from text blocks using model fallback if rate limits are hit.
     """
     global CURRENT_MODEL_INDEX
-    models = ["llama3-70b-8192","llama-3.3-70b-versatile"]
+    models = ["llama3-70b-8192","llama-3.3-70b-versatile","qwen-qwq-32b"]
+    # ------------ Apply for research credits on OpenAI --------------
+    # Work out how many CPUs, how much RAM and disc space I will need
+
     full_text = "\n\n".join(text_blocks)
     prompt = build_eps_prompt(full_text)
 
@@ -236,7 +264,11 @@ def extract_eps_data(text_blocks: list[str]) -> tuple[float | None, float | None
 
         except Exception as e:
             if '429' in str(e):
-                CURRENT_MODEL_INDEX = (CURRENT_MODEL_INDEX + 1) % len(models)
+                if CURRENT_MODEL_INDEX == len(models) - 1:
+                    time.sleep(60)  # Wait for a minute before retrying the last model to let TPM reset
+                else:
+                    CURRENT_MODEL_INDEX = (CURRENT_MODEL_INDEX + 1) % len(models)
+                print(str(e))
                 print(f"[WARN] Rate limit hit, switching model to {models[CURRENT_MODEL_INDEX]}")
                 
             else:
