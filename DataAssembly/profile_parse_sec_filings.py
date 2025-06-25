@@ -5,62 +5,77 @@ import psutil
 import time
 import pandas as pd
 from parse_sec_filings import extract_eps
+import shutil
+import tracemalloc
 
-def profile_function(func, *args, **kwargs):
+def profile_function_batch(func, query_list):
     process = psutil.Process(os.getpid())
-    start_mem = process.memory_info().rss / (1024 * 1024)  # in MB
+
+    # Start measuring
+    tracemalloc.start()
+    start_rss = process.memory_info().rss / (1024 * 1024)  # MB
     start_cpu = time.process_time()
+    start_wall = time.time()
 
-    _,_ = func(*args, **kwargs)
+    # Run the batch
+    for index,query in enumerate(query_list):
+        print(f"[INFO] Processing query {index + 1}/{len(query_list)}: {query}")
+        try:
+            func(query)
+        except Exception as e:
+            print(f"[WARN] Failed on query: {e}")
 
+    end_wall = time.time()
     end_cpu = time.process_time()
-    end_mem = process.memory_info().rss / (1024 * 1024)  # in MB
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    end_rss = process.memory_info().rss / (1024 * 1024)  # MB
 
-    print(f"CPU time used: {end_cpu - start_cpu:.2f}s")
-    print(f"Memory used: {end_mem - start_mem:.2f} MB")
+    return {
+        "cpu_time": end_cpu - start_cpu,
+        "wall_time": end_wall - start_wall,
+        "rss_memory_used": end_rss - start_rss,
+        "peak_memory_used": peak / (1024 * 1024),  # MB
+    }
 
-    cpu_usage = end_cpu - start_cpu
-    memory_usage = end_mem - start_mem
-    return cpu_usage, memory_usage
+def get_disk_usage(path="."):
+    usage = shutil.disk_usage(path)
+    return usage.used / (1024 * 1024 * 1024)  # GB
 
 def main():
-    """
-    Main function to profile the EPS extraction from SEC filings.
-    """
-
     df = pd.read_csv(config.EPS_DATA_CSV)
-    df_AAPL = df[df['Ticker'] == 'AAPL']
+    df_subset = df[df['Ticker'] == 'AAPL']
 
-    if df_AAPL.empty:
-        print("[INFO] No EPS data found for AAPL.")
+    if df_subset.empty:
+        print("[INFO] No data for AAPL.")
         return
-    # Extract 'Query' column from the DataFrame, this is the arg for extract_eps function that we are profiling
-    queries = df_AAPL['Query'].tolist()
-    print(f"[INFO] Extracting EPS data for {len(queries)} queries...")
-    # Profile the extract_eps function
-    total_cpu_usage = 0
-    total_memory_usage = 0
-    for query in queries:
-        cpu_usage, memory_usage = profile_function(extract_eps, query)
-        total_cpu_usage += cpu_usage
-        total_memory_usage += memory_usage
-        print(f"[INFO] CPU usage for query '{query}': {cpu_usage:.2f}s, Memory usage: {memory_usage:.2f} MB")
 
-    average_cpu_usage = total_cpu_usage / len(queries)
-    average_memory_usage = total_memory_usage / len(queries)
-    print(f"[INFO] Average CPU usage: {average_cpu_usage:.2f}s, Average Memory usage: {average_memory_usage:.2f} MB")
+    queries_subset = df_subset['Query'].tolist()
+    total_rows = len(df)
+    subset_size = len(queries_subset)
 
-    # Calculate the total expected CPU usage based on the average CPU usage and the number of queries in the original dataframe. 
-    # Not just the AAPL queries.
-    total_expected_cpu_usage = average_cpu_usage * len(df['Query'].tolist())
-    print(f"[INFO] Total expected CPU usage for all queries: {total_expected_cpu_usage:.2f}s")
-    total_expected_memory_usage = average_memory_usage * len(df['Query'].tolist())
-    print(f"[INFO] Total expected Memory usage for all queries: {total_expected_memory_usage:.2f} MB")
+    print(f"[INFO] Profiling {subset_size} queries (subset of {total_rows})...")
+
+    disk_before = get_disk_usage()
+    metrics = profile_function_batch(extract_eps, queries_subset)
+    disk_after = get_disk_usage()
+
+    disk_used = disk_after - disk_before
+    scale_factor = total_rows / subset_size if subset_size else 0
+
+    print("\n[SUBSET RESULTS]")
+    print(f"Subset CPU time:            {metrics['cpu_time']:.2f} s")
+    print(f"Subset wall time:           {metrics['wall_time']:.2f} s")
+    print(f"Subset RSS memory used:     {metrics['rss_memory_used']:.2f} MB")
+    print(f"Subset Peak memory used:    {metrics['peak_memory_used']:.2f} MB")
+    print(f"Subset Disk usage:          {disk_used:.2f} GB")
+
+    print("\n[PROJECTED TOTAL USAGE]")
+    print(f"Total CPU time:             {metrics['cpu_time'] * scale_factor:.2f} s")
+    print(f"Total wall time:            {metrics['wall_time'] * scale_factor:.2f} s")
+    print(f"Total RSS memory used:      {metrics['rss_memory_used'] * scale_factor:.2f} MB")
+    print(f"Total Peak memory used:     {metrics['peak_memory_used'] * scale_factor:.2f} MB")
+    print(f"Total Disk usage:           {disk_used * scale_factor:.2f} GB")
 
 if __name__ == "__main__":
     main()
-    print("[INFO] Profiling complete.")
-
-
-
-

@@ -22,3 +22,17 @@ Lexrank_summary: 13057521
 [INFO] Current row count in news_articles: 87573645
 [INFO] New row count in news_articles: 51625
 [DONE] News articles database built successfully.
+
+[SUBSET RESULTS]
+Subset CPU time:            53.86 s
+Subset wall time:           1311.31 s
+Subset RSS memory used:     227.41 MB
+Subset Peak memory used:    64.55 MB
+Subset Disk usage:          -0.06 GB
+
+[PROJECTED TOTAL USAGE]
+Total CPU time:             8510.14 s
+Total wall time:            207211.75 s
+Total RSS memory used:      35934.56 MB
+Total Peak memory used:     10200.08 MB
+Total Disk usage:           -8.93 GB
