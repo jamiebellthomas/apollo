@@ -263,12 +263,14 @@ def extract_eps_data(text_blocks: list[str]) -> tuple[float | None, float | None
 
         except Exception as e:
             if '429' in str(e):
+                print(str(e))
                 if CURRENT_MODEL_INDEX == len(models) - 1:
+                    print(f"[WARN] Rate limit hit for all models, waiting 60 seconds before retrying last model: {models[CURRENT_MODEL_INDEX]}")
                     time.sleep(60)  # Wait for a minute before retrying the last model to let TPM reset
                 else:
                     CURRENT_MODEL_INDEX = (CURRENT_MODEL_INDEX + 1) % len(models)
-                print(str(e))
-                print(f"[WARN] Rate limit hit, switching model to {models[CURRENT_MODEL_INDEX]}")
+                
+                    print(f"[WARN] Rate limit hit, switching model to {models[CURRENT_MODEL_INDEX]}")
                 
             else:
                 print(f"[ERROR] Unexpected error: {e}")
