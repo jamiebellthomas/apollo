@@ -77,11 +77,11 @@ def build_eps_prompt(text: list[str]) -> str:
         "value. This must be returned in a specific format -> 'basic_eps: value, diluted_eps: value'. "
         "It is very important you stick to this formatting otherwise the output is invalid. "
         "DO NOT return any other text, just the values in the format specified. "
-        "For quarterly filings, the EPS is for the most recent quarter - not the rest of the year (e.g Six Months Ended / Nine Months Ended). "
+        "For quarterly filings, the EPS is for the most recent quarter - NOT the rest of the year (e.g Six Months Ended / Nine Months Ended). "
         "It is also very important you spot negative EPS values, and return them as negative numbers. These are usually denoted by loss in the tables and may potentially be in brackets. "
         "The information: "
         + " ".join(text)
-        + " AGAIN, DO NOT return any other text, just the values in the format specified."
+        + " AGAIN, DO NOT return any other text, just the values in the format specified and only the EPS data from the most recent quarter."
     )
 
             
@@ -179,7 +179,7 @@ def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
         "gemma-7b-it": 8192,
         "llama-3.3-70b-versatile": 32768,
         "deepseek-r1-distill-llama-70b": 128000,
-        "qwen-qwq-32b": 128000,
+        "qwen-qwq-32b": 8192*2,
     }
 
     
@@ -191,7 +191,20 @@ def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
         )
         model = model or "llama3-70b-8192"
         max_tokens = model_token_limits.get(model,8192)
+        original_prompt_length = len(prompt)
         prompt = prompt[:max_tokens]
+        new_prompt_length = len(prompt)
+        # Print percentage reduction in prompt length if reduced
+        if original_prompt_length > new_prompt_length:
+            reduction_percentage = ((original_prompt_length - new_prompt_length) / original_prompt_length) * 100
+            print(f"[INFO] Original prompt length: {original_prompt_length}, Truncated prompt length: {new_prompt_length}, Max tokens for model: {max_tokens}")
+            print(f"Reduced by {reduction_percentage:.2f}%")
+            if reduction_percentage > 50:
+                print("[WARN] Over 50 percent reduction in prompt length, terminating early to avoid potential issues with model understanding.")
+                return ""
+
+
+        
         
 
     elif provider == "openai":
@@ -389,11 +402,14 @@ def main(start:int):
         
         try:
             query = row['Query']
-            basic_eps, diluted_eps = extract_eps(query)
+            # basic_eps, diluted_eps = extract_eps(query)
             if '10-Q' in row['Form Type']:
+                basic_eps, diluted_eps = extract_eps(query)
                 df.at[index, 'quarterly_raw_eps'] = basic_eps
                 df.at[index, 'quarterly_diluted_eps'] = diluted_eps
             elif '10-K' in row['Form Type']:
+                print(f"[INFO] Skipping 10-K filing (for now)")
+                continue
                 df.at[index, 'annual_raw_eps'] = basic_eps
                 df.at[index, 'annual_diluted_eps'] = diluted_eps
         except Exception as e:
@@ -415,7 +431,7 @@ def main(start:int):
         print("[INFO] All rows processed successfully.")
 
 if __name__ == "__main__":
-    main(start=480)
+    main(start=1785)
     # data = (extract_relevant_eps_data_html("https://www.sec.gov/Archives/edgar/data/820313/000155837024013696/aph-20240930x10q.htm"))
     # for i in data:
     #     print("-------------------")
