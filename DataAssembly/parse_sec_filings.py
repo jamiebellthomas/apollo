@@ -14,8 +14,7 @@ from openai import OpenAI
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-CURRENT_MODEL_INDEX = 3
-
+CURRENT_MODEL_INDEX = 0
 
 def check_eps_formatting(eps_data: str) -> bool:
     """
@@ -255,7 +254,7 @@ def extract_eps_data(text_blocks: list[str]) -> tuple[float | None, float | None
     Extract EPS data from text blocks using model fallback if rate limits are hit.
     """
     global CURRENT_MODEL_INDEX
-    models = ["llama3-70b-8192","llama-3.3-70b-versatile","qwen-qwq-32b", "deepseek-r1-distill-llama-70b"]
+    models = ["llama3-70b-8192","llama-3.3-70b-versatile", "deepseek-r1-distill-llama-70b","qwen-qwq-32b"]
     # ------------ Apply for research credits on OpenAI --------------
     # Work out how many CPUs, how much RAM and disc space I will need
 
