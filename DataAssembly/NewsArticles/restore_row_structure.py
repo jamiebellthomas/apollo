@@ -1,9 +1,10 @@
 import re
 import random
-import tempfile
-import os
+import sys,os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+import config
 
-def fix_newlines_by_index_pattern_streaming(input_path, temp_path):
+def fix_newlines_by_index_pattern_streaming(input_path, output_path):
     """
     Step 1: Stream through the file to flatten newlines and rebuild correct row boundaries
     based on float index + UTC timestamp pattern.
@@ -16,7 +17,7 @@ def fix_newlines_by_index_pattern_streaming(input_path, temp_path):
     final_line_count = 0
     sample_lines = []
 
-    with open(input_path, 'r', encoding='utf-8') as infile, open(temp_path, 'w', encoding='utf-8') as outfile:
+    with open(input_path, 'r', encoding='utf-8') as infile, open(output_path, 'w', encoding='utf-8') as outfile:
         buffer = ""
 
         for i, line in enumerate(infile):
@@ -51,50 +52,12 @@ def fix_newlines_by_index_pattern_streaming(input_path, temp_path):
     print("[INFO] Row structure restored.")
 
 
-def fix_internal_quotes_streaming(temp_path, final_path):
-    """
-    Step 2: For each line, keep first and last quote, replace all others with apostrophes.
-    """
-    print("[INFO] Cleaning internal quotes in rows...")
-    with open(temp_path, 'r', encoding='utf-8') as infile, open(final_path, 'w', encoding='utf-8') as outfile:
-        for i, line in enumerate(infile):
-            quote_indices = [j for j, char in enumerate(line) if char == '"']
-
-            if len(quote_indices) < 2:
-                outfile.write(line)
-                continue
-
-            first, last = quote_indices[0], quote_indices[-1]
-            fixed_line = (
-                line[:first + 1] +
-                line[first + 1:last].replace('"', "'") +
-                line[last:]
-            )
-            outfile.write(fixed_line)
-
-            if i > 0 and i % 500_000 == 0:
-                print(f"[INFO] Processed {i:,} rows...")
-
-    print("[DONE] All internal quotes cleaned and structure repaired.")
-
-
 def repair_fns_news_csv(original_path, final_output_path):
     """
-    Master function: repair broken CSV and produce a clean output.
+    Master function: repair broken CSV by restoring row structure only.
     """
-    temp_path = original_path.replace(".csv", "_rowfixed_temp.csv")
-    fix_newlines_by_index_pattern_streaming(original_path, temp_path)
-    fix_internal_quotes_streaming(temp_path, final_output_path)
+    fix_newlines_by_index_pattern_streaming(original_path, final_output_path)
 
-    # Optional: remove temp file
-    try:
-        os.remove(temp_path)
-        print(f"[INFO] Removed temp file: {temp_path}")
-    except Exception as e:
-        print(f"[WARN] Could not remove temp file: {e}")
-
-
-    import random
 
 def analyse_csv(filepath, num_samples=10):
     """
@@ -114,13 +77,15 @@ def analyse_csv(filepath, num_samples=10):
         print(line.strip())
 
 
-
 # Example usage:
 if __name__ == "__main__":
-    # repair_fns_news_csv(
-    #     "Data/nasdaq_exteral_data.csv",
-    #     "Data/final_clean_news.csv"
-    # )
-    print("[INFO] CSV repair completed. Now analysing the cleaned CSV...")
-    analyse_csv("Data/final_clean_news.csv", num_samples=10)
+    # Uncomment the following line to run cleaning
+    repair_fns_news_csv(config.NEWS_CSV_PATH_ORIGIN, config.NEWS_CSV_PATH_CLEAN)
 
+    num_sample = 3
+    print(f"Printing {num_sample} random samples from original dataset:")
+    analyse_csv(config.NEWS_CSV_PATH_ORIGIN, num_samples=num_sample)
+    
+    print('-'*30)
+    print(f"Printing {num_sample} random samples from cleaned dataset:")
+    analyse_csv(config.NEWS_CSV_PATH_CLEAN, num_samples=num_sample)
