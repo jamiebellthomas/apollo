@@ -1,8 +1,8 @@
 import sys, os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import config
 import pandas as pd
-from company_names import see_which_have_existed_for_long_enough
+from DataAssembly.MetaData.company_names import see_which_have_existed_for_long_enough
 import sqlite3
 from collect_earnings_transcript import add_to_existing
 

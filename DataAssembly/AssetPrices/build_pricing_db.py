@@ -3,7 +3,7 @@ import sqlite3
 import yfinance as yf
 from time import sleep
 import sys, os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import config
 
 def create_pricing_db():

@@ -10,3 +10,4 @@ passwords.txt
 /SEC_Downloads/
 /sec-edgar-filings/
 config.py
+/__pycache__/

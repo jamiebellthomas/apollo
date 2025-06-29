@@ -1,6 +1,6 @@
 import pandas as pd
 import sys, os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import config
 import sqlite3
 

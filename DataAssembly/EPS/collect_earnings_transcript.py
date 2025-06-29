@@ -1,7 +1,7 @@
 import os
 import sys
 # === Load config and setup ===
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import config
 
 from selenium import webdriver
