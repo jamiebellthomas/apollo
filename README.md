@@ -11,5 +11,9 @@ Currently working on the dataset construction: Order
     [retrieves URLs for 10-Q's + filed and reporting for dates for companies in DB]
 5.  DataAssembly/collect_earnings_transcript_analysis.py/main()
     [retries tickers who retrieved insuffcient/too many 10-Q's, removes tickers that reproduce guff from metadata and pricing data]
+6.  EPS Data will be pre-prepared, its to far to slow and the parsing process isn't robust enough to fully automate this
+    This will also be the case for revenus data once this pipeline is prepared.
+7.  DataAssembly/NewsArticles/restore_row_structure.py
+    [This downloads the raw new data if not present and converts it from its very very messy and malformed structure into rows]
+    [This also removes rows relating to tickers that aren't being analysed according the the 'Ticker' col in eps_data.csv and 'Symbol' in news.csv]
 
-PAUSE: At this point we have a syncronised list of tickers between Data/momentum_data.db/daily_prices, Data/filing_dates_and_urls.csv, and Data/filtered_sp500_metadata.csv. Now we need to syncronise the two CSVs into the database in seperate tables. 

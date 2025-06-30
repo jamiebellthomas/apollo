@@ -93,10 +93,44 @@ def sample_and_export_cleaned_csv(input_path, output_path, num_samples=3):
             print(f"Summaries    : {[c for c in sample[8:]]}")
         print()
 
+import pandas as pd
+
+def filter_news_by_eps_tickers(news_csv_path, eps_csv_path, output_csv_path):
+    """
+    Filters the news CSV to only include rows where 'Symbol' is in the list of EPS 'Ticker' values.
+
+    Parameters:
+        news_csv_path (str): Path to the cleaned news CSV (must have a 'Symbol' column).
+        eps_csv_path (str): Path to the EPS data CSV (must have a 'Ticker' column).
+        output_csv_path (str): Path where the filtered CSV will be saved.
+    """
+    print(f"[INFO] Reading EPS tickers from: {eps_csv_path}")
+    eps_df = pd.read_csv(eps_csv_path)
+    tickers = set(eps_df['Ticker'].dropna().unique())
+    print(f"[INFO] Loaded {len(tickers):,} unique tickers.")
+
+    print(f"[INFO] Reading news data from: {news_csv_path}")
+    news_df = pd.read_csv(news_csv_path)
+    before = len(news_df)
+    print(f"[INFO] Original news rows: {before:,}")
+
+    filtered_df = news_df[news_df['Stock_symbol'].isin(tickers)]
+    after = len(filtered_df)
+    print(f"[INFO] Filtered news rows: {after:,} (kept {after/before:.2%})")
+
+    print(f"[INFO] Writing filtered data to: {output_csv_path}")
+    filtered_df.to_csv(output_csv_path, index=False)
+    print("[DONE] Filtering complete.")
+
+
 # Example usage
 if __name__ == "__main__":
     sample_and_export_cleaned_csv(
         config.NEWS_CSV_PATH_FORMATTED_ROWS,
         config.NEWS_CSV_PATH_CLEAN,
-        num_samples=3
+        num_samples=0
     )
+
+    filter_news_by_eps_tickers(news_csv_path=config.NEWS_CSV_PATH_CLEAN,
+                               eps_csv_path=config.EPS_DATA_CSV,
+                               output_csv_path=config.NEWS_CSV_PATH_CLEAN)

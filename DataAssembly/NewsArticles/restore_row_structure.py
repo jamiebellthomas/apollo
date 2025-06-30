@@ -4,6 +4,44 @@ import sys,os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import config
 
+import os
+import subprocess
+import shutil
+
+def download_raw_data(target_path, wget_url, downloaded_filename=None):
+    """
+    Check if the target file exists. If not, use wget to download it and move it into place.
+
+    Parameters:
+        target_path (str): Final destination path for the file.
+        wget_url (str): URL to download the file from.
+        downloaded_filename (str, optional): The filename that wget will save. 
+                                             If not provided, inferred from the URL.
+    """
+    if os.path.exists(target_path):
+        print(f"[INFO] File already exists at: {target_path}")
+        return
+
+    print(f"[INFO] File not found. Downloading from: {wget_url}")
+    
+    # Run wget to download the file
+    subprocess.run(["wget", wget_url], check=True)
+
+    # Infer filename from URL if not provided
+    if downloaded_filename is None:
+        downloaded_filename = wget_url.split("/")[-1]
+
+    if not os.path.exists(downloaded_filename):
+        raise FileNotFoundError(f"Expected download file not found: {downloaded_filename}")
+
+    # Ensure target directory exists
+    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+    # Move the file
+    shutil.move(downloaded_filename, target_path)
+    print(f"[INFO] File downloaded and moved to: {target_path}")
+
+
 def fix_newlines_by_index_pattern_streaming(input_path, output_path):
     """
     Step 1: Stream through the file to flatten newlines and rebuild correct row boundaries
@@ -56,6 +94,9 @@ def repair_fns_news_csv(original_path, final_output_path):
     """
     Master function: repair broken CSV by restoring row structure only.
     """
+    if os.path.exists(config.NEWS_CSV_PATH_FORMATTED_ROWS):
+        print(f"[INFO] File already exists at: {config.NEWS_CSV_PATH_FORMATTED_ROWS}")
+        return 
     fix_newlines_by_index_pattern_streaming(original_path, final_output_path)
 
 
@@ -83,8 +124,12 @@ def analyse_csv(filepath, num_samples=3):
 
 # Example usage:
 if __name__ == "__main__":
-    # Uncomment the following line to run cleaning
-    #repair_fns_news_csv(config.NEWS_CSV_PATH_ORIGIN, config.NEWS_CSV_PATH_FORMATTED_ROWS)
+
+    download_raw_data(target_path=config.NEWS_CSV_PATH_ORIGIN,
+                      wget_url="https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv",
+                      downloaded_filename="nasdaq_exteral_data.csv")
+
+    repair_fns_news_csv(config.NEWS_CSV_PATH_ORIGIN, config.NEWS_CSV_PATH_FORMATTED_ROWS)
 
     num_sample = 3
     print(f"Printing {num_sample} random samples from original dataset:")
