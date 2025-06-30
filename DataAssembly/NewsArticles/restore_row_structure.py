@@ -59,7 +59,7 @@ def repair_fns_news_csv(original_path, final_output_path):
     fix_newlines_by_index_pattern_streaming(original_path, final_output_path)
 
 
-def analyse_csv(filepath, num_samples=10):
+def analyse_csv(filepath, num_samples=3):
     """
     Prints total row count and N random rows from a CSV file (as plain lines).
     Assumes the file is already line-separated properly (e.g., cleaned).
@@ -72,15 +72,19 @@ def analyse_csv(filepath, num_samples=10):
     total = len(lines)
     print(f"[INFO] Total rows: {total:,}")
 
+    # print the first line
+    print("First line:",  lines[0])
+
     print(f"[INFO] Random sample ({min(num_samples, total)} rows):")
-    for line in random.sample(lines, min(num_samples, total)):
+    for index,line in enumerate(random.sample(lines, min(num_samples, total))):
+        print(f"Line {index+1}:")
         print(line.strip())
 
 
 # Example usage:
 if __name__ == "__main__":
     # Uncomment the following line to run cleaning
-    repair_fns_news_csv(config.NEWS_CSV_PATH_ORIGIN, config.NEWS_CSV_PATH_CLEAN)
+    #repair_fns_news_csv(config.NEWS_CSV_PATH_ORIGIN, config.NEWS_CSV_PATH_FORMATTED_ROWS)
 
     num_sample = 3
     print(f"Printing {num_sample} random samples from original dataset:")
@@ -88,4 +92,4 @@ if __name__ == "__main__":
     
     print('-'*30)
     print(f"Printing {num_sample} random samples from cleaned dataset:")
-    analyse_csv(config.NEWS_CSV_PATH_CLEAN, num_samples=num_sample)
+    analyse_csv(config.NEWS_CSV_PATH_FORMATTED_ROWS, num_samples=num_sample)
