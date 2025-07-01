@@ -110,7 +110,11 @@ def extract_relevant_eps_data_html(query: str) -> str:
             re.search(r"income\s+.*?\s+per\s+share", lowered_text) or
             "earnings per share" in node.text.lower() or 
             "earnings per common share" in node.text.lower() or
-            "income per share" in node.text.lower()):
+            "income per share" in node.text.lower() or 
+            "income per common share" in node.text.lower() or
+            "net income (loss) per share of common stock" in node.text.lower() or
+            "net income per share of common stock" in node.text.lower()
+            ):
 
             node_type = str(node._semantic_element)
             # If the node type contains 'TextElement' skip it
@@ -158,6 +162,27 @@ def extract_relevant_eps_data_html(query: str) -> str:
     print(f"[INFO] Extracted {len(text)} text blocks, using all for prompt.")
     return text
 
+def extract_eps_from_llm_output(raw_output: str) -> str:
+    """
+    Extract the correct EPS-formatted output from the end of a noisy LLM response.
+
+    Returns only the part matching: 'basic_eps: <float>, diluted_eps: <float>',
+    where either float can be negative, and may be of any digit length.
+
+    If no valid pattern is found, returns the raw_output unchanged.
+    """
+    # Remove any surrounding whitespace and normalize brackets used for negatives
+    raw_output = raw_output.strip().replace('(', '-').replace(')', '')
+
+    # Regex to match 'basic_eps: <float>, diluted_eps: <float>' at the end of the string
+    pattern = r"(basic_eps:\s*-?\d+(?:\.\d+)?\s*,\s*diluted_eps:\s*-?\d+(?:\.\d+)?)\s*$"
+
+    match = re.search(pattern, raw_output, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    return raw_output  # let the formatting checker handle rejections if needed
+
 
 def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
     """
@@ -198,13 +223,9 @@ def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
             reduction_percentage = ((original_prompt_length - new_prompt_length) / original_prompt_length) * 100
             print(f"[INFO] Original prompt length: {original_prompt_length}, Truncated prompt length: {new_prompt_length}, Max tokens for model: {max_tokens}")
             print(f"Reduced by {reduction_percentage:.2f}%")
-            if reduction_percentage > 50:
-                print("[WARN] Over 50 percent reduction in prompt length, terminating early to avoid potential issues with model understanding.")
+            if reduction_percentage > 70:
+                print("[WARN] Over 80 percent reduction in prompt length, terminating early to avoid potential issues with model understanding.")
                 return ""
-
-
-        
-        
 
     elif provider == "openai":
         client = OpenAI(api_key=config.OPENAI_API_KEY)
@@ -231,22 +252,7 @@ def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
     # remove dollar signs
     raw_output = re.sub(r'\$', '', raw_output)
 
-    if len(raw_output) > 36:
-        # 36 is the upper limit for the output, so we will truncate it to the last 36 characters (34 chars plus two potential negative signs)
-        raw_output = raw_output[-36:]
-
-        # now count the number of negative signs in the output
-        negative_signs = raw_output.count('-')
-        # if there are two negative signs, it means the LLM has returned 2 negative values, so we need don't need to remove any chars
-        if negative_signs == 0:
-            # if there are no negative signs, we need to remove the first two characters
-            raw_output = raw_output[2:]
-        if negative_signs == 1:
-            # if there is only one negative sign, we need to remove the first character
-            raw_output = raw_output[1:]
-
-        # if input is malformed at this point the check_eps_formatting function will catch it
-    return raw_output
+    return extract_eps_from_llm_output(raw_output=raw_output)
 
 
 def extract_eps_data(text_blocks: list[str]) -> tuple[float | None, float | None]:
@@ -407,7 +413,7 @@ def main(start:int):
                 df.at[index, 'quarterly_raw_eps'] = basic_eps
                 df.at[index, 'quarterly_diluted_eps'] = diluted_eps
             elif '10-K' in row['Form Type']:
-                print(f"[INFO] Skipping 10-K filing (for now)")
+                #print(f"[INFO] Skipping 10-K filing (for now)")
                 continue
                 df.at[index, 'annual_raw_eps'] = basic_eps
                 df.at[index, 'annual_diluted_eps'] = diluted_eps
@@ -430,7 +436,7 @@ def main(start:int):
         print("[INFO] All rows processed successfully.")
 
 if __name__ == "__main__":
-    main(start=7640)
+    main(start=4160)
     # data = (extract_relevant_eps_data_html("https://www.sec.gov/Archives/edgar/data/820313/000155837024013696/aph-20240930x10q.htm"))
     # for i in data:
     #     print("-------------------")
