@@ -4,7 +4,7 @@ import config
 import psutil
 import time
 import pandas as pd
-from parse_sec_filings import extract_eps
+from DataAssembly.EPS.parse_10q_filings import extract_eps
 import shutil
 import tracemalloc
 
