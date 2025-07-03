@@ -4,7 +4,6 @@ import config
 
 from sec_downloader import Downloader
 import sec_parser as sp
-import openai
 import pandas as pd
 import re
 import warnings
