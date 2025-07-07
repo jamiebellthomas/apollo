@@ -12,3 +12,4 @@ passwords.txt
 config.py
 /__pycache__/
 Data/news*
+backup/news_associated_tickers.csv
