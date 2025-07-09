@@ -36,3 +36,20 @@ Total wall time:            207211.75 s
 Total RSS memory used:      35934.56 MB
 Total Peak memory used:     10200.08 MB
 Total Disk usage:           -8.93 GB
+
+To do:
+Seperate new stories where appropriate, currently we have all related tickers for each story, what we need to do now is to go through each of these
+related tickers and see how they fit into the article as a whole, some related tickers are just independent facts chucked into the articles 
+and some relate directly to the primary ticker. We need an big LLM pipeline to go through this and do this seperation, making a new db for stories
+FOR EXAMPLE:
+If we have an AAPL story talking about a partnership with NVDA and providing a general updated on AMZN and EBAY, we need to do the following
+Convert:
+[Date], AAPL, [Article], [NVDA,AMZN,EBAY]
+
+To:
+[Date], [AAPL, NVDA], [Article]
+[Date], [AMZN], [Fact]
+[Date], [EBAY], [Fact]
+
+Much cleaner representation for the knowledge graph. plus means we don't have rogue links. The problem with the first representation is that
+(in this case) AMZN and EBAY would be linked to AAPL in the KG, despite the article not really creating any real link there

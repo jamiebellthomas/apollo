@@ -426,10 +426,6 @@ TICKER_KEYWORD_LOOKUP = {
     "MSCI",
     "MSCI"
   ],
-  "NDAQ": [
-    "NDAQ",
-    "Nasdaq"
-  ],
   "NTAP": [
     "NTAP",
     "NetApp"
