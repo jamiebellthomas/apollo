@@ -321,15 +321,32 @@ def populate_associated_tickers_with_regex(
 
     return df
 
+def clear_duplicate_articles(df:pd.DataFrame):
+
+    print(f"Original length: {len(df)}")
+
+    # Drop any columns whose *name* contains 'Unnamed'
+    df = df.drop(columns=[col for col in df.columns if "Unnamed" in col])
+
+
+    # Drop duplicate Article_title rows, keeping the first occurrence
+    df_unique = df.drop_duplicates(subset="Article_title", keep="first")
+
+    print(f"New length: {len(df_unique)}")
+
+    df_unique.to_csv(config.NEWS_CSV_PATH_ASSOCIATED_TICKERS, index=False)
+
+    
+
 
 
 
 
 if __name__ == "__main__":
-    if not os.path.exists(config.NEWS_CSV_PATH_ASSOCIATED_TICKERS):
-        shutil.copy(config.NEWS_CSV_PATH_CLEAN, config.NEWS_CSV_PATH_ASSOCIATED_TICKERS)
+    # if not os.path.exists(config.NEWS_CSV_PATH_ASSOCIATED_TICKERS):
+    #     shutil.copy(config.NEWS_CSV_PATH_CLEAN, config.NEWS_CSV_PATH_ASSOCIATED_TICKERS)
 
-    df = pd.read_csv(config.NEWS_CSV_PATH_ASSOCIATED_TICKERS)
+    # df = pd.read_csv(config.NEWS_CSV_PATH_ASSOCIATED_TICKERS)
 
     # asyncio.run(
     #     populate_associated_tickers_column_async(
@@ -338,7 +355,9 @@ if __name__ == "__main__":
     #         concurrency_limit=100  # adjust based on provider limits
     #     )
     # )
-    populate_associated_tickers_with_regex(df=df)
+    # populate_associated_tickers_with_regex(df=df)
+    related_ticker_db = pd.read_csv(config.NEWS_CSV_PATH_ASSOCIATED_TICKERS)
+    clear_duplicate_articles(df=related_ticker_db)
 
 
 
