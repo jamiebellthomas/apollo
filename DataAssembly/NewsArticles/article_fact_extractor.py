@@ -9,7 +9,8 @@ import json
 import os
 import ast
 from typing import Any, Iterable, List
-
+import httpx
+OLLAMA_URL = "http://localhost:11434/api/generate"
 """
 async_pipeline.py
 =================
@@ -115,55 +116,24 @@ def validate_llm_response(raw: str) -> list[dict[str, Any]]:
 # Async LLM placeholder  (replace with real inference)
 ###############################################################################
 
-def _chat_sync(prompt: str) -> str:
-    client = OpenAI(
-        api_key=config.GROQ_API_KEY,
-        base_url="https://api.groq.com/openai/v1",
-    )
-    response = client.chat.completions.create(
-        model="llama3-70b-8192",
-        messages=[
-            {"role": "system", "content": "You are a financial analyst."},
-            {"role": "user",    "content": prompt},
-        ],
-        temperature=0.6,
-    )
-    return response.choices[0].message.content.strip()
 
-async def call_llm_async(prompt: str) -> str:
-    """Non-blocking wrapper around the synchronous Groq call."""
-    return await asyncio.to_thread(_chat_sync, prompt)
+async def call_llm_async(prompt: str, model: str) -> str:
+    """
+    Asynchronous call to local Ollama model.
+    """
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        resp = await client.post(
+            OLLAMA_URL,
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": False  # full completion, not streaming
+            }
+        )
+        resp.raise_for_status()
+        content = resp.json()
+        return content["response"].strip()
 
-
-# async def call_llm_async(prompt: str) -> str:
-#     """Simulate an async LLM call.  Replace with real GPU inference."""
-#     # await asyncio.sleep(0.5)  # simulate 500 ms latency
-#     # return """
-#     # [{
-#     #   "date": "2023-10-10",
-#     #   "tickers": ["AAPL", "NVDA"],
-#     #   "raw_text": "Apple announced a partnership with NVIDIA",
-#     #   "event_type": "partnership",
-#     #   "sentiment": 0.8
-#     # }]
-#     # """.strip()
-#     client = OpenAI(
-#             api_key=config.GROQ_API_KEY,
-#             base_url="https://api.groq.com/openai/v1"
-#         )
-#     model = "llama3-70b-8192"
-
-#     response = client.chat.completions.create(
-#         model=model,
-#         messages=[
-#             {"role": "system", "content": "You are a financial analyst."},
-#             {"role": "user", "content": prompt}
-#         ],
-#         temperature=0.6
-#     )
-
-#     raw_output = response.choices[0].message.content.strip()
-#     return raw_output
 
 
 ###############################################################################
@@ -210,6 +180,7 @@ async def run_pipeline_async(
     dataset: Iterable[dict[str, Any]],
     *,
     output_path: str,
+    model:str,
     max_workers: int = 8,
     gpu_concurrency: int = 4,
     max_attempts: int = 3,
@@ -304,14 +275,17 @@ async def run_pipeline_async(
                 print(f"[WORKER {worker_id}] calling LLM for article {idx}")
                 for attempt in range(1, max_attempts + 1):
                     try:
-                        raw = await call_llm_async(prompt)
+                        raw = await call_llm_async(prompt=prompt,
+                                                   model=model)
                         print(f"[WORKER {worker_id}] LLM returned for article {idx} (attempt {attempt})")
                         validated = validate_llm_response(raw)
                         print(f"Validated return: {validated}")
                         print(f"Focus tickers: {focus}")
                         break
                     except Exception as exc:
-                        print(f"[WORKER {worker_id}] attempt {attempt} failed on article {idx}: {exc}")
+                        print(f"[WORKER {worker_id}] attempt {attempt} failed on article {idx}: {type(exc).__name__}: {exc}")
+                        print(f"[WORKER {worker_id}] recieved: {raw}")
+
                         if attempt < max_attempts:
                             await asyncio.sleep(backoff_base * attempt)
 
@@ -382,6 +356,7 @@ def main() -> None:
     GPU_CONCURRENCY = 4                     # simultaneous LLM calls
     FLUSH_EVERY     = 100                   # facts per disk flush
     MAX_ATTEMPTS    = 3                     # retries per article on failure
+    MODEL_NAME = "llama3.1:8b"  # change to "llama2:70b" on GPU box
     # ──────────────────────────────────────────────────────────────────────
 
     dataset = iter_csv(INPUT_CSV)
@@ -389,6 +364,7 @@ def main() -> None:
         run_pipeline_async(
             dataset,
             output_path     = OUTPUT_JSONL,
+            model           = MODEL_NAME,
             max_workers     = MAX_WORKERS,
             gpu_concurrency = GPU_CONCURRENCY,
             flush_every     = FLUSH_EVERY,
