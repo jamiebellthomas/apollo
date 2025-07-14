@@ -53,3 +53,66 @@ To:
 
 Much cleaner representation for the knowledge graph. plus means we don't have rogue links. The problem with the first representation is that
 (in this case) AMZN and EBAY would be linked to AAPL in the KG, despite the article not really creating any real link there
+
+
+--------
+
+
+I gave GPT my plan and asked it to make it into a set of notes
+---
+
+### Notes: General KG Encoding Strategy
+
+* **Nodes:**
+
+  * Two distinct node types:
+
+    * **Fact nodes:**
+
+      * One per extracted fact.
+      * Node feature: dense vector embedding of the fact’s text, computed using **FinBERT**.
+    * **Company nodes:**
+
+      * One per company/ticker.
+      * Node feature: quantitative financial metrics of the company (e.g., EPS, revenue, etc.).
+
+* **Edges:**
+
+  * Edges only connect **fact nodes → company nodes**.
+  * No direct company–company edges, which avoids introducing potentially spurious links.
+  * Every fact node may connect to multiple company nodes (if multiple tickers are mentioned in the fact).
+
+* **Edge features:**
+
+  * **Date score:**
+
+    * Encodes recency of the fact relative to prediction time.
+    * Computed using a decay function, e.g.:
+
+      ```
+      date_score = exp(-λ * Δt)
+      ```
+
+      where `Δt` is the time difference and `λ` is a tunable decay parameter.
+  * **Sentiment:**
+
+    * The sentiment of the fact, as extracted.
+    * Use raw or normalized to range `[-1, 1]`.
+
+* **Filtering:**
+
+  * Facts with near-zero sentiment can optionally be excluded from the KG (since they carry little directional signal).
+
+* **Event type:**
+
+  * Rather than using raw `event_type` strings, cluster them into canonical categories.
+  * Use a clean mapping of each fact’s `event_type` to its cluster ID as an additional feature.
+
+* **Why this design makes sense:**
+
+  * Heterogeneous graph structure: two distinct node types, meaningful edge features.
+  * Avoids noisy direct company–company edges while still allowing information flow via shared facts.
+  * Fact nodes encode unstructured text signals; company nodes encode structured numeric signals.
+  * Temporal and sentiment signals are explicitly embedded in the edge.
+
+---
