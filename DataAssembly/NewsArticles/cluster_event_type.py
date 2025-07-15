@@ -7,6 +7,11 @@ import numpy as np
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
+from matplotlib.lines import Line2D
+from typing import Dict, List
+from pathlib import Path
+from matplotlib.colors import ListedColormap
+
 
 
 def collect_event_types(file_path:str = config.NEWS_FACTS) -> set:
@@ -18,8 +23,13 @@ def collect_event_types(file_path:str = config.NEWS_FACTS) -> set:
             etype = fact.get("event_type")
             if etype:
                 event_types.add(etype.strip().lower())
+
+    # Remove 'other' from the set if it exists
+    event_types.discard('other')
     event_types = list(event_types)
     print(f"Found {len(event_types)} unique event types.")
+
+
 
     return event_types
 
@@ -34,57 +44,138 @@ def get_clusters(embeddings:np.ndarray, n_clusters:int) -> np.ndarray:
     kmeans = KMeans(n_clusters=n_clusters, 
                     random_state=42)
     labels = kmeans.fit_predict(embeddings)
+    n_clusters = len(np.unique(labels))
+    print(f"{n_clusters} clusters.")
     return labels
 
-def reduce_dimensionality(embeddings:np.ndarray) -> np.ndarray:
-    tsne = TSNE(n_components=2, perplexity=7, random_state=42)
+def reduce_dimensionality(embeddings:np.ndarray, perplexity:int) -> np.ndarray:
+    tsne = TSNE(n_components=2, 
+                perplexity=perplexity, 
+                random_state=42)
     embeddings_2d = tsne.fit_transform(embeddings)
     return embeddings_2d
 
-def plot_two_dim_embeddings(embeddings_2d:np.ndarray, labels:np.ndarray, event_types:list) -> dict:
+# ----------------------------------------------------------------------
+# Utility: always return an n-colour ListedColormap, regardless of
+#          Matplotlib version (new API if available, fallback otherwise)
+# ----------------------------------------------------------------------
+def _get_discrete_cmap(name: str, n: int):
+    try:
+        # Modern route (mpl ≥ 3.5): resample an existing colormap
+        return plt.colormaps.get_cmap(name).resampled(n)
+    except (AttributeError, TypeError):
+        # Legacy route (works back to mpl 3.0)
+        base = plt.get_cmap(name, 256)          # 256-level continuous map
+        return ListedColormap(base(np.linspace(0, 1, n)))
 
-    # Build mapping
-    cluster_map = {etype: int(label) for etype, label in zip(event_types, labels)}
 
-    # Plot
-    plt.figure(figsize=(12, 10))
-    scatter = plt.scatter(
+def plot_two_dim_embeddings(
+    embeddings_2d: np.ndarray,
+    labels: np.ndarray,
+    event_types: List[str],
+    show_centroids: bool = True,
+    outfile: str = "Plots/cluster_results/clusters.png",
+) -> Dict[str, int]:
+    """
+    Scatter-plot 2-D embeddings coloured by cluster, annotate each point as
+    (label, cluster-number), optionally mark centroids, save to *outfile*,
+    and display the figure.
+
+    Returns
+    -------
+    dict
+        Mapping {event_type: cluster_label}.
+    """
+    # ------------------------------------------------------------------
+    # Prepare colours and figure
+    # ------------------------------------------------------------------
+    unique_labels = np.unique(labels)
+    n_clusters = len(unique_labels)
+    cmap = _get_discrete_cmap("nipy_spectral", n_clusters)
+
+    fig, ax = plt.subplots(figsize=(12, 10))
+
+    # ------------------------------------------------------------------
+    # Scatter plot
+    # ------------------------------------------------------------------
+    ax.scatter(
         embeddings_2d[:, 0],
         embeddings_2d[:, 1],
         c=labels,
-        cmap="tab10",   # This specifies the colormap used to colour the points according to their c= (the cluster labels).
-        s=50,           # This controls the size of each scatter point.
-        alpha=0.9      # This sets the transparency (opacity) of each point 1=filled 0=opaque
+        cmap=cmap,
+        s=50,
+        alpha=0.9,
     )
 
-    # Annotate each point with its event_type text
-    for i, txt in enumerate(event_types):
-        plt.annotate(txt,
-                     (embeddings_2d[i, 0], embeddings_2d[i, 1]),
-                     fontsize=8,
-                     alpha=0.7)
+    # Annotate each point with "(label, cluster)"
+    for i, etype in enumerate(event_types):
+        ax.annotate(
+            f"({etype}, {labels[i]})",
+            (embeddings_2d[i, 0], embeddings_2d[i, 1]),
+            fontsize=8,
+            alpha=0.7,
+        )
 
-    plt.title("2d representation of clusters using TSNE")
-    plt.xlabel("TSNE-1")
-    plt.ylabel("TSNE-2")
-    handles, _ = scatter.legend_elements(prop="colors")
-    legend_labels = [f"Cluster {i}" for i in np.unique(labels)]
-    plt.legend(handles, legend_labels, title="Clusters")
-    plt.tight_layout()
+    # ------------------------------------------------------------------
+    # Optional centroids
+    # ------------------------------------------------------------------
+    if show_centroids:
+        for k in unique_labels:
+            pts = embeddings_2d[labels == k]
+            cx, cy = pts.mean(axis=0)
+            ax.scatter(
+                cx,
+                cy,
+                marker="x",
+                s=200,
+                linewidths=3,
+                color=cmap(k),
+                zorder=5,
+            )
+
+    # ------------------------------------------------------------------
+    # Legend – one handle per cluster
+    # ------------------------------------------------------------------
+    handles = [
+        Line2D([0], [0], marker="o", linestyle="",
+               color=cmap(k), label=f"Cluster {k}", markersize=10)
+        for k in unique_labels
+    ]
+    ax.legend(handles=handles, title="Clusters")
+
+    # ------------------------------------------------------------------
+    # Final styling
+    # ------------------------------------------------------------------
+    ax.set_title("2-D representation of clusters using t-SNE")
+    ax.set_xlabel("t-SNE 1")
+    ax.set_ylabel("t-SNE 2")
+    fig.tight_layout()
+
+    # ------------------------------------------------------------------
+    # Save and show
+    # ------------------------------------------------------------------
+    out_path = Path(outfile)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.show()
 
-    return cluster_map
+    # ------------------------------------------------------------------
+    # Return mapping
+    # ------------------------------------------------------------------
+    return {etype: int(lbl) for etype, lbl in zip(event_types, labels)}
 
 
 def main():
     event_types = collect_event_types()
     embeddings = get_embeddings(event_types = event_types)
-    embeddings_2d = reduce_dimensionality(embeddings=embeddings)
+    embeddings_2d = reduce_dimensionality(embeddings=embeddings,
+                                          perplexity=20)
     labels = get_clusters(embeddings=embeddings,
-                          n_clusters=8)
+                          n_clusters=13)
     plot_two_dim_embeddings(embeddings_2d=embeddings_2d,
                             labels=labels,
-                            event_types=event_types)
+                            event_types=event_types,
+                            show_centroids=False)
 
 
 if __name__ == "__main__":
