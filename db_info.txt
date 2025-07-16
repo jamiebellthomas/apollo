@@ -116,3 +116,25 @@ I gave GPT my plan and asked it to make it into a set of notes
   * Temporal and sentiment signals are explicitly embedded in the edge.
 
 ---
+
+
+To do:
+
+- 10-K extraction pipeline, try and get Q1,2,3,&4 EPS data if possible, get
+- FinBERT extraction
+- Model exponential decay
+- Read papers to see if there is a gold standard for H-GNN formatting
+- KG construction
+- Start researching Heterogeneous GNN stuff/relook at notes from DGL module - this will be a really good bit of maths to talk about in the report
+
+
+Report sections to write:
+- Company selection and meta data
+- Pricing data
+- EPS data (extraction and eval)
+- News articles source, extraction, clearning, analysis+eval
+- Articles -> facts + notebook eval (to be completed)
+- Discuss LLM selection, use benchmark scores on the LLM model cardsin both general and long context (even though we'll use LLama3)
+BASICALLY MAKE SURE THAT EVERY LINE OF CODE HAS SOME KIND OF REFERENCE IN REPORT
+
+
