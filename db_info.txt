@@ -120,8 +120,8 @@ I gave GPT my plan and asked it to make it into a set of notes
 
 To do:
 
-- 10-K extraction pipeline, try and get Q1,2,3,&4 EPS data if possible, get
-- FinBERT extraction
+- 10-K extraction pipeline, try and get Q1,2,3,&4 EPS data if possible, get - DONE/Pipeline set up, issues running it currnetly for some reason
+- FinBERT extraction - DONE/Not being implemented
 - Model exponential decay
 - Read papers to see if there is a gold standard for H-GNN formatting
 - KG construction
