@@ -66,7 +66,7 @@ def extract_eps_from_openai_result(eps_data: str) -> tuple[float, float]:
     return basic_eps, diluted_eps
 
 
-def build_eps_prompt(text: list[str]) -> str:
+def build_quarterly_eps_prompt(text: list[str]) -> str:
     return (
         "I am about to send you all components relating to the earnings per share of a company. "
         "Please summarize the earnings per share information, including both basic and diluted EPS. "
@@ -82,7 +82,23 @@ def build_eps_prompt(text: list[str]) -> str:
         + " AGAIN, DO NOT return any other text, just the values in the format specified and only the EPS data from the most recent quarter."
     )
 
-            
+
+
+def build_annual_eps_prompt(text: list[str]) -> str:
+    return (
+        "I am about to send you all components relating to the earnings per share of a company from a 10-k filing. "
+        "Please summarize the ANNUAL earnings per share information, including both basic and diluted EPS. "
+        "I want you to return it as two separate values. The first value should be the basic EPS, "
+        "and the second value should be the diluted EPS. If either is not available, return None for that "
+        "value. This must be returned in a specific format -> 'basic_eps: value, diluted_eps: value'. "
+        "It is very important you stick to this formatting otherwise the output is invalid. "
+        "DO NOT return any other text, just the values in the format specified. "
+        "There could potentially be Quarterly Financial Data in one of the components - this has been collected by accident to to RegEx and must be ignored."
+        "It is also very important you spot negative EPS values, and return them as negative numbers. These are usually denoted by loss in the tables and may potentially be in brackets. "
+        "The information: "
+        + " ".join(text)
+        + " AGAIN, DO NOT return any other text, just the values in the format specified and only the EPS data for the whole year."
+    )
     
 
 def extract_relevant_eps_data_html(query: str) -> str:
@@ -196,13 +212,13 @@ def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
     """
 
     model_token_limits = {
-        "llama3-70b-8192": 8192,
-        "llama3-8b-8192": 8192,
-        "mixtral-8x7b-32768": 32768,
-        "gemma-7b-it": 8192,
-        "llama-3.3-70b-versatile": 32768,
-        "deepseek-r1-distill-llama-70b": 128000,
-        "qwen-qwq-32b": 8192*2,
+        "llama3-70b-8192": 16_384,
+        "llama3-8b-8192": 16_384,
+        "mixtral-8x7b-32768": 16_384,
+        "gemma-7b-it": 8_192,
+        "llama-3.3-70b-versatile": 32_768,
+        "deepseek-r1-distill-llama-70b": 128_000,
+        "qwen-qwq-32b": 16_384,
     }
 
     
@@ -254,7 +270,7 @@ def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
     return extract_eps_from_llm_output(raw_output=raw_output)
 
 
-def extract_eps_data(text_blocks: list[str]) -> tuple[float | None, float | None]:
+def extract_eps_data(text_blocks: list[str], quarterly_report:bool) -> tuple[float | None, float | None]:
     """
     Extract EPS data from text blocks using model fallback if rate limits are hit.
     """
@@ -264,7 +280,12 @@ def extract_eps_data(text_blocks: list[str]) -> tuple[float | None, float | None
     # Work out how many CPUs, how much RAM and disc space I will need
 
     full_text = "\n\n".join(text_blocks)
-    prompt = build_eps_prompt(full_text)
+    prompt = None
+    if quarterly_report:
+        prompt = build_quarterly_eps_prompt(full_text)
+    elif quarterly_report == False:
+        prompt = build_annual_eps_prompt(full_text)
+
 
     for attempt in range(5):
         model = models[CURRENT_MODEL_INDEX]
@@ -295,7 +316,7 @@ def extract_eps_data(text_blocks: list[str]) -> tuple[float | None, float | None
 
     return (None, None)
 
-def extract_eps(query:str) -> tuple[float, float]:
+def extract_eps(query:str, quarterly_report:bool) -> tuple[float, float]:
 
     """
     Main function to extract EPS data from a 10-Q or 10-K filing.
@@ -313,7 +334,7 @@ def extract_eps(query:str) -> tuple[float, float]:
 
     if eps_text_data:
         # Extract EPS values using OpenAI
-        data = extract_eps_data(eps_text_data)
+        data = extract_eps_data(eps_text_data, quarterly_report=quarterly_report)
         basic_eps, diluted_eps = data
         return (basic_eps, diluted_eps)
     else:
@@ -346,12 +367,13 @@ def main(start:int):
     original_df = pd.read_csv(config.FILING_DATES_AND_URLS_CSV)
 
     # 2. Create new DataFrame with only the necessary columns (Ticker, Form Type, URL) and save it to config.EPS_DATA_CSV if it doesn't exist
-    if not os.path.exists(config.EPS_DATA_CSV):
+    if not os.path.exists(config.QUARTERLY_EPS_DATA_CSV):
         print("[INFO] EPS data CSV does not exist. Creating a new one.")
         df = original_df[['Ticker', 'Form Type', 'URL']].copy()
-        df.to_csv(config.EPS_DATA_CSV, index=False)
+        df = df[df['Form Type'] == '10-Q (Quarterly report)'].copy()
+        df.to_csv(config.QUARTERLY_EPS_DATA_CSV, index=False)
     else:
-        df = pd.read_csv(config.EPS_DATA_CSV)
+        df = pd.read_csv(config.QUARTERLY_EPS_DATA_CSV)
     
 
     # 3. If there is no 'Accession Number' column, create it
@@ -370,12 +392,7 @@ def main(start:int):
         df['quarterly_raw_eps'] = None
     if 'quarterly_diluted_eps' not in df.columns:
         df['quarterly_diluted_eps'] = None
-    if 'annual_raw_eps' not in df.columns:
-        df['annual_raw_eps'] = None
-    if 'annual_diluted_eps' not in df.columns:
-        df['annual_diluted_eps'] = None
 
-    
     # Now we will iterate over each row and apply the extract_eps function to the 'Query' column
     # We will also keep track of the rows that failed to process, so we can retry them later
     print("[INFO] Starting EPS extraction process...")
@@ -386,8 +403,7 @@ def main(start:int):
 
         # If the row already has any eps values, skip it
         if (
-        ('10-Q' in row['Form Type'] and pd.notnull(row['quarterly_raw_eps']) and pd.notnull(row['quarterly_diluted_eps'])) or
-        ('10-K' in row['Form Type'] and pd.notnull(row['annual_raw_eps']) and pd.notnull(row['annual_diluted_eps']))
+        (pd.notnull(row['quarterly_raw_eps']) and pd.notnull(row['quarterly_diluted_eps']))
     ):
             continue
 
@@ -401,34 +417,26 @@ def main(start:int):
         if index % 5 == 0:  # Print every 100 rows
             percent = (index + 1) / total_rows * 100
             print(f"[INFO] Processing row {index + 1}/{total_rows} ({percent:.2f}%), Saving progress...")
-            df.to_csv(config.EPS_DATA_CSV, index=False)  # Save progress
+            df.to_csv(config.QUARTERLY_EPS_DATA_CSV, index=False)  # Save progress
 
         
         try:
             query = row['Query']
-            # basic_eps, diluted_eps = extract_eps(query)
-            if '10-Q' in row['Form Type']:
-                basic_eps, diluted_eps = extract_eps(query)
-                df.at[index, 'quarterly_raw_eps'] = basic_eps
-                df.at[index, 'quarterly_diluted_eps'] = diluted_eps
-            elif '10-K' in row['Form Type']:
-                #print(f"[INFO] Skipping 10-K filing (for now)")
-                continue
-                df.at[index, 'annual_raw_eps'] = basic_eps
-                df.at[index, 'annual_diluted_eps'] = diluted_eps
+
+            basic_eps, diluted_eps = extract_eps(query, quarterly_report=True)
+            df.at[index, 'quarterly_raw_eps'] = basic_eps
+            df.at[index, 'quarterly_diluted_eps'] = diluted_eps
         except Exception as e:
             print(f"[ERROR] Failed to process row {index + 1}: {e}")
             bad_row_indices.append((index,query))
             df.at[index, 'quarterly_raw_eps'] = None
             df.at[index, 'quarterly_diluted_eps'] = None
-            df.at[index, 'annual_raw_eps'] = None
-            df.at[index, 'annual_diluted_eps'] = None
             continue
         print("---------------------")
 
     print(f"[INFO] Finished processing {total_rows} rows.")
     # Save the updated DataFrame to the CSV
-    df.to_csv(config.EPS_DATA_CSV, index=False)
+    df.to_csv(config.QUARTERLY_EPS_DATA_CSV, index=False)
     if len(bad_row_indices) > 0:
         print(f"[WARNING] Some rows failed to process: {bad_row_indices}")
     else:
