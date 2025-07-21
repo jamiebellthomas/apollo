@@ -11,5 +11,5 @@ passwords.txt
 /sec-edgar-filings/
 config.py
 /__pycache__/
-Data/news*
+Data/news_formatted_rows_clean.csv
 backup/news_associated_tickers.csv
