@@ -119,7 +119,7 @@ def validate_llm_response(raw: str) -> list[dict[str, Any]]:
 
 async def call_llm_async(prompt: str, model: str) -> str:
     """
-    Asynchronous call to local Ollama model.
+    Asynchronous call to local Ollama model with token count debug output.
     """
     async with httpx.AsyncClient(timeout=120.0) as client:
         resp = await client.post(
@@ -132,6 +132,14 @@ async def call_llm_async(prompt: str, model: str) -> str:
         )
         resp.raise_for_status()
         content = resp.json()
+
+        # # Print token counts if available
+        # prompt_tokens = content.get("prompt_eval_count")
+        # completion_tokens = content.get("eval_count")
+        # total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
+
+        # print(f"[DEBUG] Prompt tokens: {prompt_tokens}, Completion tokens: {completion_tokens}, Total: {total_tokens}")
+
         return content["response"].strip()
 
 
@@ -213,19 +221,19 @@ async def run_pipeline_async(
             if len(buffer) >= flush_every:
                 await flush_rows(buffer, output_path)
                 flush_count += 1
-                print(f"[WRITER] flushed batch #{flush_count} ({len(buffer)} rows)")
+                # print(f"[WRITER] flushed batch #{flush_count} ({len(buffer)} rows)")
                 buffer.clear()
             fact_q.task_done()
 
         if buffer:
             await flush_rows(buffer, output_path)
-            print(f"[WRITER] final flush ({len(buffer)} rows)")
+            # print(f"[WRITER] final flush ({len(buffer)} rows)")
         fact_q.task_done()
-        print("[WRITER] finished")
+        # print("[WRITER] finished")
 
     # ────────────────────────── worker coroutine ──────────────────────────
     async def worker(worker_id: int) -> None:
-        print(f"[WORKER {worker_id}] started")
+        # print(f"[WORKER {worker_id}] started")
         while True:
             item = await article_q.get()
             if item is None:
@@ -234,7 +242,7 @@ async def run_pipeline_async(
 
             idx, article = item
             article_q.task_done()
-            print(f"[WORKER {worker_id}] dequeued article {idx}")
+            # print(f"[WORKER {worker_id}] dequeued article {idx}")
 
             if idx <= last_done:
                 continue
@@ -272,7 +280,7 @@ async def run_pipeline_async(
 
             validated: list[dict[str, Any]] = []
             async with gpu_sem:
-                print(f"[WORKER {worker_id}] calling LLM for article {idx}")
+                # print(f"[WORKER {worker_id}] calling LLM for article {idx}")
                 for attempt in range(1, max_attempts + 1):
                     try:
                         raw = await call_llm_async(prompt=prompt,
@@ -292,9 +300,9 @@ async def run_pipeline_async(
             for fact in validated:
                 fact["source_article_index"] = idx
                 await fact_q.put(fact)
-                print(f"[WORKER {worker_id}] queued fact for article {idx}")
+                # print(f"[WORKER {worker_id}] queued fact for article {idx}")
 
-        print(f"[WORKER {worker_id}] finished")
+        # print(f"[WORKER {worker_id}] finished")
 
     # ────────────────────────── reader coroutine ──────────────────────────
     async def reader() -> None:
@@ -341,7 +349,7 @@ def iter_csv(path: str) -> Iterable[dict[str, Any]]:
 
 
 ###############################################################################
-# Hard-coded main (no user input)
+# Hard-coded
 ###############################################################################
 def main() -> None:
     """
@@ -356,7 +364,7 @@ def main() -> None:
     GPU_CONCURRENCY = 4                     # simultaneous LLM calls
     FLUSH_EVERY     = 100                   # facts per disk flush
     MAX_ATTEMPTS    = 3                     # retries per article on failure
-    MODEL_NAME = "llama3.1:8b"  # change to "llama2:70b" on GPU box
+    MODEL_NAME = "llama3.3:70b"  # change to "llama2:70b" on GPU box
     # ──────────────────────────────────────────────────────────────────────
 
     dataset = iter_csv(INPUT_CSV)
