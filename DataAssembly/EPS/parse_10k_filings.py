@@ -97,7 +97,7 @@ def main(start:int):
         print("[INFO] All rows processed successfully.")
 
 if __name__ == "__main__":
-    main(start=0)
+    main(start=200)
     # data = (extract_relevant_eps_data_html("https://www.sec.gov/Archives/edgar/data/820313/000155837024013696/aph-20240930x10q.htm"))
     # for i in data:
     #     print("-------------------")

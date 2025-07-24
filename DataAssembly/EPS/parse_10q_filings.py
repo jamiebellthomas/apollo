@@ -129,7 +129,7 @@ def extract_relevant_eps_data_html(query: str) -> str:
             "income per common share" in node.text.lower() or
             "net income (loss) per share of common stock" in node.text.lower() or
             "net income per share of common stock" in node.text.lower()
-            ):
+            ) and not re.search(r"quarterly financial data", lowered_text) and not re.search(r"quarterly results of operations", lowered_text) and not re.search(r"quarterly", lowered_text) and not re.search(r"three months ended", lowered_text):
 
             node_type = str(node._semantic_element)
             # If the node type contains 'TextElement' skip it
@@ -212,13 +212,13 @@ def extract_eps_openai(prompt: str, model: str, provider: str = "groq") -> str:
     """
 
     model_token_limits = {
-        "llama3-70b-8192": 16_384,
+        "llama3-70b-8192": 8_192,
         "llama3-8b-8192": 16_384,
         "mixtral-8x7b-32768": 16_384,
         "gemma-7b-it": 8_192,
         "llama-3.3-70b-versatile": 32_768,
         "deepseek-r1-distill-llama-70b": 128_000,
-        "qwen-qwq-32b": 16_384,
+        "qwen/qwen3-32b": 16_384,
     }
 
     
