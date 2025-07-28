@@ -10,6 +10,7 @@ import os
 import ast
 from typing import Any, Iterable, List
 import httpx
+import re
 OLLAMA_URL = "http://localhost:11434/api/generate"
 """
 async_pipeline.py
@@ -48,33 +49,35 @@ def build_llm_prompt(
 ) -> str:
     focus = ", ".join(focus_tickers)
     return f"""
-You are an expert financial news analyst.
-Extract atomic facts as a JSON array where each element has the schema:
-{{
-  "date": "<YYYY-MM-DD>",
-  "tickers": ["<TICKER_1>", …],
-  "raw_text": "<fact text>",
-  "event_type": "<string>",
-  "sentiment": <float>
-}}
+    You are an expert financial news analyst.
+    Your task is to extract, for each mentioned company, a structured summary of the relevant story elements from the article. Return your output as a JSON array where each element follows this schema:
+    {{
+    "date": "<YYYY-MM-DD>",
+    "tickers": ["<TICKER_1>", …],
+    "raw_text": "<coherent description of the situation involving these tickers>",
+    "event_type": "<string>",
+    "sentiment": <float>
+    }}
 
-Rules:
-- Include only facts that mention at least one of: {focus}. If a fact does not contain any of these tickers - DO NOT return it!
-- One coherent fact per object.
-- Choose event_type from a sensible finite set such as
-  "earnings_announcement", "partnership", "lawsuit",
-  "product_launch", "executive_change", "acquisition",
-  "bankruptcy", or "other".
-- sentiment must be between -1 (very negative) and 1 (very positive).
+    Rules:
+    - Each JSON object should group information relevant to a single ticker or a small set of closely linked tickers.
+    - DO NOT return any entry unless at least one of the following tickers is mentioned: {focus}
+    - `raw_text` should be a coherent summary (1–3 sentences) capturing the core issue or development for the ticker(s).
+    - Choose `event_type` from a sensible finite set such as:
+    "earnings_announcement", "partnership", "lawsuit",
+    "product_launch", "executive_change", "acquisition",
+    "bankruptcy", or "other". Use "other" if no better option fits.
+    - `sentiment` must be a float between -1 (very negative) and 1 (very positive), representing the tone toward the affected ticker(s).
 
-Date: {date}
-Article:
-\"\"\"
-{article_text}
-\"\"\"
+    Date: {date}
+    Article:
+    \"\"\"
+    {article_text}
+    \"\"\"
 
-Respond **only** with the JSON array.
-""".strip()
+    Respond with **only** a single JSON array or the format will be deemed invalid!
+    """.strip()
+
 
 
 ###############################################################################
@@ -89,9 +92,41 @@ _REQUIRED_FIELDS = {
 }
 
 
+_REQUIRED_FIELDS = {
+    "date": str,
+    "tickers": list,
+    "raw_text": str,
+    "event_type": str,
+    "sentiment": (int, float),
+}
+
 def validate_llm_response(raw: str) -> list[dict[str, Any]]:
-    """Raise ValueError if the model output is not a list of well-formed fact objects."""
-    data = json.loads(raw)  # may raise JSONDecodeError – let it propagate to caller
+    """
+    Extracts and validates a list of fact objects from potentially messy LLM output.
+    Raises ValueError if no valid JSON list of fact dicts is found.
+    """
+    # First try a direct parse
+    try:
+        data = json.loads(raw)
+        return _validate_fact_list(data)
+    except Exception:
+        pass  # We'll fall back to regex scan
+
+    # Look for any JSON array fragments in the text
+    array_candidates = re.findall(r"\[\s*{.*?}\s*\]", raw, re.DOTALL)
+
+    for candidate in array_candidates:
+        try:
+            data = json.loads(candidate)
+            return _validate_fact_list(data)
+        except Exception:
+            continue
+
+    raise ValueError("No valid JSON array of fact objects found in LLM response.")
+
+
+def _validate_fact_list(data: Any) -> list[dict[str, Any]]:
+    """Internal helper to validate list structure and field types."""
     if not isinstance(data, list):
         raise ValueError("Top-level JSON is not a list")
 
