@@ -55,11 +55,7 @@ Much cleaner representation for the knowledge graph. plus means we don't have ro
 (in this case) AMZN and EBAY would be linked to AAPL in the KG, despite the article not really creating any real link there
 
 
---------
-
-
-I gave GPT my plan and asked it to make it into a set of notes
----
+-----
 
 ### Notes: General KG Encoding Strategy
 

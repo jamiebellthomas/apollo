@@ -50,7 +50,7 @@ def build_llm_prompt(
     focus = ", ".join(focus_tickers)
     return f"""
     You are an expert financial news analyst.
-    Your task is to extract, for each mentioned company, a structured summary of the relevant story elements from the article. Return your output as a JSON array where each element follows this schema:
+    Your task is to extract, for each mentioned company, a structured, concise, yet mearningful summary of the relevant story elements from the article. Return your output as a JSON array where each element follows this schema:
     {{
     "date": "<YYYY-MM-DD>",
     "tickers": ["<TICKER_1>", …],
@@ -89,15 +89,6 @@ _REQUIRED_FIELDS = {
     "raw_text": str,
     "event_type": str,
     "sentiment": (float, int),
-}
-
-
-_REQUIRED_FIELDS = {
-    "date": str,
-    "tickers": list,
-    "raw_text": str,
-    "event_type": str,
-    "sentiment": (int, float),
 }
 
 def validate_llm_response(raw: str) -> list[dict[str, Any]]:

@@ -9,6 +9,7 @@ OPENAI_API_KEY = "sk-proj-cAgDX-tlt44hkDAJRnmD9UE87UqblWXa8E60mUHuGLniZt-i8L4io5
 SEC_API_KEY = "ec5c67df2f4fc7b712e3854cece2de54d1c1cc2523ee690ded5b02de2f92461f"
 GROQ_API_KEY = "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"
 GIT_TOKEN = "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"
+
 # --- Filepaths ---
 METADATA_CSV_FILEPATH = "Data/filtered_sp500_metadata.csv"
 ORIGINAL_PATH = "nasdaq_exteral_data.csv"
@@ -24,8 +25,7 @@ EPS_DATA_CSV = "Data/eps_data.csv"
 QUARTERLY_EPS_DATA_CSV = "Data/eps_data_10q.csv"
 ANNUAL_EPS_DATA_CSV = "Data/eps_data_10k.csv"
 NEWS_FACTS = "Data/facts_output.jsonl"
-
-
+SUBGRAPHS_JSONL = "Data/subgraphs.jsonl"
 
 
 # --- Database Table Names ---
@@ -36,3 +36,7 @@ PRICING_TABLE_NAME = "daily_prices"
 START_DATE = "2012-01-01"
 END_DATE = "2024-12-31"
 REQUIRED_ROW_COUNT = 3269
+
+# --- KG Parameters ---
+WINDOW_DAYS   = 90 # 1 quarter roughly
+SENTIMENT_MIN = 0.10 
