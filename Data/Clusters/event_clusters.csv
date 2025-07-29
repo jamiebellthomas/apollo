@@ -1,0 +1,14 @@
+cluster_id,cluster_name,size
+0,prediction|recommendation|forecast,8
+1,market_share|market_cap|market_share_gain,9
+2,regulatory_issue|regulation_announcement|regulation,5
+3,valuation_update|investment_update|product_update,9
+4,revenue_growth|growth_opportunity|growth_opportunities,9
+5,dividend_increase|dividend_payment|dividend_history,6
+6,stock_price_movement|share_price_movement|price_movement,10
+7,partnership|bankruptcy|acquisition,6
+8,fund_performance|fund_holding|risk_profile,6
+9,earnings_announcement|earnings_update|earnings_forecast,8
+10,fund holdings disclosure|index disclosure|ownership_reveal,3
+11,manufacturing_change|company_narrative_change|industry_movement,8
+12,analyst_rating|stock_analysis_report|stock_risk_assessment,5
