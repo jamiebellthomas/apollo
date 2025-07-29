@@ -63,11 +63,9 @@ def build_llm_prompt(
     - Each JSON object should group information relevant to a single ticker or a small set of closely linked tickers.
     - DO NOT return any entry unless at least one of the following tickers is mentioned: {focus}
     - `raw_text` should be a coherent summary (1–3 sentences) capturing the core issue or development for the ticker(s).
-    - Choose `event_type` from a sensible finite set such as:
-    "earnings_announcement", "partnership", "lawsuit",
-    "product_launch", "executive_change", "acquisition",
-    "bankruptcy", or "other". Use "other" if no better option fits.
+    - `event_type` should be a concise **snake case** descriptor like  "earnings_announcement", "partnership", "lawsuit", "product_launch", "executive_change", etc. It should reflect the **main kind of event** described. Use free-form classification — avoid limiting yourself to predefined categories, if you can't think of a good label, use "other".
     - `sentiment` must be a float between -1 (very negative) and 1 (very positive), representing the tone toward the affected ticker(s).
+
 
     Date: {date}
     Article:
