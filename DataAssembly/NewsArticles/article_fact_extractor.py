@@ -227,6 +227,7 @@ async def run_pipeline_async(
 
     last_done = _max_index(output_path)
     print(f"[PIPE] Resuming after article index {last_done}")
+    print(f"Model: {model}")
 
     article_q: asyncio.Queue[Any] = asyncio.Queue(max_workers * 2)
     fact_q: asyncio.Queue[Any] = asyncio.Queue(flush_every * 2)
@@ -245,7 +246,7 @@ async def run_pipeline_async(
             if len(buffer) >= flush_every:
                 await flush_rows(buffer, output_path)
                 flush_count += 1
-                # print(f"[WRITER] flushed batch #{flush_count} ({len(buffer)} rows)")
+                print(f"[WRITER] flushed batch #{flush_count} ({len(buffer)} rows)")
                 buffer.clear()
             fact_q.task_done()
 
@@ -309,10 +310,11 @@ async def run_pipeline_async(
                     try:
                         raw = await call_llm_async(prompt=prompt,
                                                    model=model)
-                        print(f"[WORKER {worker_id}] LLM returned for article {idx} (attempt {attempt})")
+                        # print(f"[WORKER {worker_id}] LLM returned for article {idx} (attempt {attempt})")
                         validated = validate_llm_response(raw)
-                        print(f"Validated return: {validated}")
-                        print(f"Focus tickers: {focus}")
+                        print(f"[WORKER {worker_id}] LLM returned valid output for article {idx} (attempt {attempt})")
+                        # print(f"Validated return: {validated}")
+                        # print(f"Focus tickers: {focus}")
                         break
                     except Exception as exc:
                         print(f"[WORKER {worker_id}] attempt {attempt} failed on article {idx}: {type(exc).__name__}: {exc}")
