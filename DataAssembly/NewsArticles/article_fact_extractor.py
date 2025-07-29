@@ -11,7 +11,9 @@ import ast
 from typing import Any, Iterable, List
 import httpx
 import re
-OLLAMA_URL = "http://localhost:11434/api/generate"
+import itertools
+OLLAMA_SERVERS = ["http://localhost:11434", "http://localhost:11435"]
+server_cycle = itertools.cycle(OLLAMA_SERVERS)
 """
 async_pipeline.py
 =================
@@ -145,27 +147,22 @@ def _validate_fact_list(data: Any) -> list[dict[str, Any]]:
 
 async def call_llm_async(prompt: str, model: str) -> str:
     """
-    Asynchronous call to local Ollama model with token count debug output.
+    Asynchronous call to an Ollama model, round-robin distributed across GPUs.
     """
+    server = next(server_cycle)
+    url = f"{server}/api/generate"
+
     async with httpx.AsyncClient(timeout=120.0) as client:
         resp = await client.post(
-            OLLAMA_URL,
+            url,
             json={
                 "model": model,
                 "prompt": prompt,
-                "stream": False  # full completion, not streaming
+                "stream": False
             }
         )
         resp.raise_for_status()
         content = resp.json()
-
-        # # Print token counts if available
-        # prompt_tokens = content.get("prompt_eval_count")
-        # completion_tokens = content.get("eval_count")
-        # total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
-
-        # print(f"[DEBUG] Prompt tokens: {prompt_tokens}, Completion tokens: {completion_tokens}, Total: {total_tokens}")
-
         return content["response"].strip()
 
 
