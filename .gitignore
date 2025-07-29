@@ -13,3 +13,4 @@ config.py
 /__pycache__/
 Data/news_formatted_rows_clean.csv
 backup/news_associated_tickers.csv
+venv
