@@ -21,6 +21,7 @@ class SubGraph:
             "reported_date": self.reported_date,
             "predicted_eps": self.predicted_eps,
             "real_eps": self.real_eps,
-            "fact_list": self.fact_list,
+            "fact_count": len(self.fact_list),
+            "fact_list": self.fact_list,  
         }
         return json.dumps(payload, ensure_ascii=False)
