@@ -77,13 +77,23 @@ def plot_two_dim_embeddings(
         alpha=0.9,
     )
 
+    # for i, etype in enumerate(event_types):
+    #     ax.annotate(
+    #         f"({etype}, {labels[i]})",
+    #         (embeddings_2d[i, 0], embeddings_2d[i, 1]),
+    #         fontsize=8,
+    #         alpha=0.7,
+    #     )
+    
     for i, etype in enumerate(event_types):
         ax.annotate(
-            f"({etype}, {labels[i]})",
+            f"({labels[i]})",
             (embeddings_2d[i, 0], embeddings_2d[i, 1]),
             fontsize=8,
             alpha=0.7,
         )
+
+
 
     if show_centroids:
         for k in unique_labels:
@@ -146,7 +156,7 @@ def save_cluster_artifacts(
     rows = []
     for cid in range(kmeans.n_clusters):
         sims = emb_norm @ cen_norm[cid]
-        top = np.argsort(-sims)[:3]
+        top = np.argsort(-sims)[:5]
         name = "|".join(event_types[i] for i in top)
         names.append(name)
         rows.append({"cluster_id": cid, "cluster_name": name, "size": int((labels == cid).sum())})
@@ -212,7 +222,7 @@ def main():
     embeddings = get_embeddings(event_types=event_types)
     embeddings_2d = reduce_dimensionality(embeddings=embeddings, perplexity=20)
 
-    labels, kmeans = get_clusters(embeddings=embeddings, n_clusters=13)
+    labels, kmeans = get_clusters(embeddings=embeddings, n_clusters=25)
 
     plot_two_dim_embeddings(
         embeddings_2d=embeddings_2d,
