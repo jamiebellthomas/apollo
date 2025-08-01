@@ -365,13 +365,16 @@ async def run_pipeline_async(
 ###############################################################################
 # CSV iterator helper
 ###############################################################################
+
 def iter_csv(path: str) -> Iterable[dict[str, Any]]:
     """
     Stream rows from a CSV as dicts.  The file handle is kept open for the
     life of the iterator (simple pattern suitable for this script).
     """
+    csv.field_size_limit(sys.maxsize)  # Increase max field size limit
     f = open(path, newline="", encoding="utf-8")  # kept open until GC
     return csv.DictReader(f)
+
 
 
 ###############################################################################
