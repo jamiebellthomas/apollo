@@ -63,6 +63,7 @@ def plot_two_dim_embeddings(
     show_centroids: bool = True,
     outfile: str = "Plots/cluster_results/clusters.png",
 ) -> Dict[str, int]:
+    
     unique_labels = np.unique(labels)
     n_clusters = len(unique_labels)
     cmap = _get_discrete_cmap("nipy_spectral", n_clusters)
@@ -105,7 +106,10 @@ def plot_two_dim_embeddings(
         Line2D([0], [0], marker="o", linestyle="", color=cmap(k), label=f"Cluster {k}", markersize=10)
         for k in unique_labels
     ]
-    ax.legend(handles=handles, title="Clusters")
+    if n_clusters < 26:
+        ax.legend(handles=handles, title="Clusters")
+        
+        
     ax.set_title("2-D representation of clusters using t-SNE")
     ax.set_xlabel("t-SNE 1")
     ax.set_ylabel("t-SNE 2")
@@ -220,9 +224,9 @@ def annotate_facts_with_clusters_inplace(
 def main():
     event_types = collect_event_types()
     embeddings = get_embeddings(event_types=event_types)
-    embeddings_2d = reduce_dimensionality(embeddings=embeddings, perplexity=20)
+    embeddings_2d = reduce_dimensionality(embeddings=embeddings, perplexity=45)
 
-    labels, kmeans = get_clusters(embeddings=embeddings, n_clusters=25)
+    labels, kmeans = get_clusters(embeddings=embeddings, n_clusters=60)
 
     plot_two_dim_embeddings(
         embeddings_2d=embeddings_2d,

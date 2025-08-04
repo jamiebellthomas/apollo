@@ -9,6 +9,7 @@ from typing import Dict, Iterable, List, Any
 import numpy as np
 import pandas as pd
 from SubGraph import SubGraph
+import sqlite3
 
 
 # ---------- Utilities ----------
@@ -166,6 +167,65 @@ def select_facts_for_instance(
 
     return fact_list
 
+def calculate_label(
+    predicted_eps: float | None,
+    real_eps: float | None,
+    ticker: str,
+    er_date: str,
+    surprise_threshold: float = 1.05,
+    short_window_days: int = 3,
+    long_window_days: int = 20,
+    short_grad_thresh: float = 0.02,
+    long_grad_thresh: float = 0.005,
+    benchmark_ticker: str = "SPY"
+) -> int:
+    """
+    Compute binary label using both EPS surprise and price momentum.
+    Requires SQLite pricing DB created by user's create_pricing_db().
+    """
+    if predicted_eps is None or real_eps is None:
+        return 0  # fallback default
+
+    # First, EPS surprise
+    if real_eps / predicted_eps < surprise_threshold:
+        return 0
+
+    # Connect to pricing DB
+    conn = sqlite3.connect(config.DB_PATH)
+
+    # Convert ER date
+    er_dt = datetime.strptime(er_date, "%Y-%m-%d").date()
+    short_end = er_dt + timedelta(days=short_window_days)
+    long_end = er_dt + timedelta(days=long_window_days)
+
+    def fetch_prices(symbol: str):
+        query = f"""
+        SELECT date, adjusted_close FROM {config.PRICING_TABLE_NAME}
+        WHERE ticker = ? AND date BETWEEN ? AND ?
+        ORDER BY date ASC
+        """
+        df = pd.read_sql_query(query, conn, params=(symbol, er_dt, long_end))
+        df['date'] = pd.to_datetime(df['date'])
+        return df
+
+    stock = fetch_prices(ticker)
+    bench = fetch_prices(benchmark_ticker)
+    conn.close()
+
+    if len(stock) < long_window_days or len(bench) < long_window_days:
+        return 0
+
+    # Merge for abnormal return calculation
+    df = pd.merge(stock, bench, on="date", suffixes=("_stock", "_bench"))
+    df["abnormal"] = df["adjusted_close_stock"].pct_change() - df["adjusted_close_bench"].pct_change()
+    df = df.dropna()
+
+    short_return = df[df["date"] <= short_end]["abnormal"].sum()
+    long_return = df[(df["date"] > short_end) & (df["date"] <= long_end)]["abnormal"].sum()
+
+    if short_return > short_grad_thresh and long_return > long_grad_thresh:
+        return 1
+    return 0
 
 # ---------- Assembly ----------
 def build_subgraph_record(
@@ -190,7 +250,14 @@ def build_subgraph_record(
         predicted_eps=None if pd.isna(predicted_eps) else float(predicted_eps),
         real_eps=None if pd.isna(real_eps) else float(real_eps),
         fact_count=len(fact_list),
-        fact_list=fact_list
+        fact_list=fact_list,
+        # WE NEED TO GET PREDICTED EPS SO WE CAN START CALCULATING LABELS
+        label=calculate_label(
+            predicted_eps=predicted_eps,
+            real_eps=real_eps,
+            ticker=ticker,
+            er_date=er_date
+        ),
     )
 
 

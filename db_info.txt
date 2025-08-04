@@ -117,11 +117,28 @@ Much cleaner representation for the knowledge graph. plus means we don't have ro
 To do:
 
 - 10-K extraction pipeline, try and get Q1,2,3,&4 EPS data if possible, get - DONE/Pipeline set up, issues running it currnetly for some reason
-- FinBERT extraction - DONE/Not being implemented
-- Model exponential decay
-- Read papers to see if there is a gold standard for H-GNN formatting
-- KG construction
-- Start researching Heterogeneous GNN stuff/relook at notes from DGL module - this will be a really good bit of maths to talk about in the report
+- FinBERT extraction, function is set up for this, just need to make a function that runs it over facts_output.jsonl
+- Model exponential decay DONE
+
+- Read papers to see if there is a gold standard for H-GNN formatting NO NEED, PyTorch will handle all this
+- KG construction, Intermediate representation completed, encoding completed, now we just need to load it into a PyTorch H-GNN 
+- Start researching Heterogeneous GNN stuff/relook at notes from DGL module - this will be a really good bit of maths to talk about in the report 
+
+- Labels for dataset, for this we need predicted EPS and a way to determine PEAD from pricing data (Maybe this can be done via combining short-term and long-term)
+moving averages.
+
+- Encoding stage of SubGraph object complete, now we need a data loader method that encode the output that aggregates SubGraph encodings into batches for model 
+consumption
+
+- Revisit whether only using cluster centroids is the best idea - we may loose alot of detail here, and if its similar to centroid encoding has similar meaning anyway
+we can still toggle different article type by the event_type centroid. 
+
+- Compare to standard numerical methods (make these and run them)
+
+
+
+
+
 
 
 Report sections to write:
@@ -132,5 +149,6 @@ Report sections to write:
 - Articles -> facts + notebook eval (to be completed)
 - Discuss LLM selection, use benchmark scores on the LLM model cardsin both general and long context (even though we'll use LLama3)
 BASICALLY MAKE SURE THAT EVERY LINE OF CODE HAS SOME KIND OF REFERENCE IN REPORT
+- KG definition, background maths and out implementation, use as many fancy symbols as possible
 
 
