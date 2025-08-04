@@ -76,8 +76,38 @@ def create_pricing_db():
         except Exception as e:
             print(f" - Error with {ticker}: {e}")
 
+    # Also get SPY ticker data for comparison if its not already in the database
+    # first check if its already in the database
+    cursor.execute(f"SELECT COUNT(*) FROM {config.PRICING_TABLE_NAME} WHERE ticker = 'SPY'")
+    count = cursor.fetchone()[0]
+    if count == 0:
+        print("Processing SPY ticker...")
+        try:
+            spy_data = yf.download('SPY', start=config.START_DATE, end=config.END_DATE, progress=False)
+            if spy_data.empty:
+                print(" - No data for SPY")
+            else:
+                df_spy_prices = spy_data.reset_index()[['Date', 'Close']]
+                df_spy_prices.columns = ['date', 'adjusted_close']
+                df_spy_prices['ticker'] = 'SPY'
+                df_spy_prices = df_spy_prices[['ticker', 'date', 'adjusted_close']]
+                df_spy_prices['date'] = pd.to_datetime(df_spy_prices['date'])
+
+                # Insert SPY data
+                df_spy_prices.to_sql(config.PRICING_TABLE_NAME, conn, if_exists='append', index=False)
+                print(" - Inserted SPY data.")
+        except Exception as e:
+            print(f" - Error with SPY: {e}")
+    else:
+        print("SPY ticker data already exists in the database, skipping...")
+        
+
     # === Done ===
     conn.close()
     print("All tickers processed.")
 
+
+if __name__ == "__main__":
+    create_pricing_db()
+    print("[INFO] Pricing database build complete.")
 
