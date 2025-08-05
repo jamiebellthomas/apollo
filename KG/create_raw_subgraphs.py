@@ -184,6 +184,7 @@ def calculate_label(
     Compute binary label using both EPS surprise and price momentum.
     Requires SQLite pricing DB created by user's create_pricing_db().
     """
+    return 0
     if predicted_eps is None or real_eps is None:
         return 0  # fallback default
 
