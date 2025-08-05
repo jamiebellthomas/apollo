@@ -13,6 +13,19 @@ from pathlib import Path
 from matplotlib.colors import ListedColormap
 import csv
 
+def canonicalize_event_text(et: str, mode: str = "as_is") -> str:
+    et = et.strip()
+    if mode == "as_is":
+        return et                         # keep underscores if that’s how you clustered
+    if mode == "spaces":
+        return et.replace("_", " ")
+    if mode == "template_spaces":
+        return f"event type: {et.replace('_',' ')}"
+    if mode == "template_as_is":
+        return f"event type: {et}"
+    return et
+
+
 
 def collect_event_types(file_path: str = config.NEWS_FACTS) -> List[str]:
     event_types = set()
@@ -25,11 +38,13 @@ def collect_event_types(file_path: str = config.NEWS_FACTS) -> List[str]:
     # event_types.discard('other')  # remove "other" (optional)
     event_types = list(event_types)
     print(f"Found {len(event_types)} unique event types.")
+    # apply caononicalization to all event types
     return event_types
 
 
-def get_embeddings(event_types: List[str]) -> np.ndarray:
+def get_embeddings(event_types: List[str], canonicalization_method:str = "spaces") -> np.ndarray:
     model = SentenceTransformer("all-MiniLM-L6-v2")  # or "yiyanghkust/finbert-embedding"
+    event_types = [canonicalize_event_text(et, mode=canonicalization_method) for et in event_types]
     embeddings = model.encode(event_types, convert_to_numpy=True, normalize_embeddings=False)
     return embeddings.astype("float32", copy=False)
 

@@ -12,7 +12,8 @@ import sqlite3
 import matplotlib.pyplot as plt
 import networkx as nx
 from matplotlib.lines import Line2D
-
+import torch
+from torch_geometric.data import HeteroData
 
 import numpy as np
 import pandas as pd
@@ -41,44 +42,57 @@ class SubGraph:
         }
         return json.dumps(payload, ensure_ascii=False)
     
+    @staticmethod
+    def canonicalize_event_text(et: str, mode: str = "as_is") -> str:
+        et = et.strip()
+        if mode == "as_is":
+            return et                         # keep underscores if that’s how you clustered
+        if mode == "spaces":
+            return et.replace("_", " ")
+        if mode == "template_spaces":
+            return f"event type: {et.replace('_',' ')}"
+        if mode == "template_as_is":
+            return f"event type: {et}"
+        return et
+    
     
     def encode(
         self,
         text_encoder,
-        id2centroid: Dict[int, np.ndarray],
         *,
-        fuse: str | None = None,               # None | "concat"
+        fuse: str | None = None,                 # None | "concat"
         l2_normalize: bool = True,
-        edge_decay=None,                        # instance of EdgeDecay or None
-        decay_type: str = "exponential",        # "linear"|"exponential"|"logarithmic"|"sigmoid"|"quadratic"
-        company_features: np.ndarray | None = None
+        edge_decay=EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),# instance of EdgeDecay or None
+        decay_type: str = "exponential",          # "linear"|"exponential"|"logarithmic"|"sigmoid"|"quadratic"
+        company_features: np.ndarray | None = None,
+        event_encode_mode: str = "spaces"           # "as_is" | "spaces" | "template_spaces" | "template_as_is"
     ) -> Dict[str, Any]:
         """
-        Build arrays for this SubGraph:
-        - fact_text_embeddings : (N, d_text)
-        - fact_event_centroids : (N, d_event)
-        - fact_features        : (N, d_text + d_event) if fuse=="concat", else None
-        - edge                 : {"sentiment": (N,), "weighting": (N,)}  # weighting via EdgeDecay
+        Build arrays for this SubGraph using a single encoder for both text and event representations:
+        - fact_text_embeddings : (N, d)
+        - fact_event_embeddings: (N, d)  (event_type encoded with same encoder)
+        - fact_features        : (N, 2d) if fuse=="concat", else None
+        - edge                 : {"sentiment": (N,), "weighting": (N,)}
         - company_features     : (1, p)  ([[1.0]] if None)
 
         Notes:
-        • Uses the same sentence-transformer as clustering (e.g., "all-MiniLM-L6-v2").
-        • Missing event_cluster_id → zero centroid row; weighting still computed from delta_days.
-        • Learned projections/fusion should live in the model; this method only prepares inputs.
+        • No centroid lookups. Event representation is an embedding of the event string (optionally augmented).
+        • If event_type is missing, falls back to "other".
+        • L2-normalization is applied row-wise if enabled.
+        • Edge weighting uses provided EdgeDecay with selected decay_type.
         """
         facts = self.fact_list or []
         N = len(facts)
 
-        # ---------- Gather per-fact fields ----------
-        texts      = [(f.get("raw_text") or "") for f in facts]
-        sentiments = np.asarray([float(f.get("sentiment", 0.0)) for f in facts], dtype=np.float32)
-        delta_days = np.asarray([int(f.get("delta_days", 0))     for f in facts], dtype=np.int32)
-        cluster_ids = np.asarray(
-            [(-1 if f.get("event_cluster_id") is None else int(f.get("event_cluster_id"))) for f in facts],
-            dtype=np.int32
-        )
+        # ---------------- Gather per-fact fields ----------------
+        texts       = [(f.get("raw_text") or "") for f in facts]
+        sentiments  = np.asarray([float(f.get("sentiment", 0.0)) for f in facts], dtype=np.float32)
+        delta_days  = np.asarray([int(f.get("delta_days", 0))     for f in facts], dtype=np.int32)
+        event_types = [str(f.get("event_type") or "other") for f in facts]
 
-        # ---------- Embed raw_text ----------
+        # ---------------- Build event strings to encode ----------------
+        event_texts = [self.canonicalize_event_text(et, mode=event_encode_mode) for et in event_types]
+        # ---------------- Embed raw_text ----------------
         if N > 0:
             text_vecs = text_encoder.encode(
                 texts,
@@ -86,66 +100,55 @@ class SubGraph:
                 normalize_embeddings=False,
                 show_progress_bar=False
             ).astype(np.float32, copy=False)
-            d_text = text_vecs.shape[1]
+            d = text_vecs.shape[1]
         else:
             # best-effort dimension inference
-            d_text = getattr(text_encoder, "get_sentence_embedding_dimension", lambda: 384)()
-            text_vecs = np.zeros((0, d_text), dtype=np.float32)
+            d = getattr(text_encoder, "get_sentence_embedding_dimension", lambda: 384)()
+            text_vecs = np.zeros((0, d), dtype=np.float32)
 
-        # ---------- Lookup centroids ----------
-        if id2centroid:
-            example_vec = next(iter(id2centroid.values()))
-            d_event = int(len(example_vec))
+        # ---------------- Embed event representations (same encoder) ----------------
+        if N > 0:
+            event_vecs = text_encoder.encode(
+                event_texts,
+                convert_to_numpy=True,
+                normalize_embeddings=False,
+                show_progress_bar=False
+            ).astype(np.float32, copy=False)
+            # Sanity: ensure same dimension
+            if event_vecs.shape[1] != d:
+                raise ValueError(f"Encoder produced mismatched dims: text d={d}, event d={event_vecs.shape[1]}")
         else:
-            d_event = d_text  # safe fallback
-        centroids = np.zeros((N, d_event), dtype=np.float32)
-        if N > 0 and id2centroid:
-            for i, cid in enumerate(cluster_ids):
-                if cid >= 0 and cid in id2centroid:
-                    centroids[i] = id2centroid[cid]
+            event_vecs = np.zeros((0, d), dtype=np.float32)
 
-        # --- L2-normalize text and centroid embeddings separately (row-wise) ---
+        # ---------------- Optional L2 normalization ----------------
         if l2_normalize:
             eps = 1e-8
-
-            # Normalize raw_text embeddings: shape (N, d_text)
             if text_vecs.size:
                 norms = np.linalg.norm(text_vecs, axis=1, keepdims=True)
                 text_vecs = text_vecs / (norms + eps)
+            if event_vecs.size:
+                norms = np.linalg.norm(event_vecs, axis=1, keepdims=True)
+                event_vecs = event_vecs / (norms + eps)
 
-            # Normalize event-type centroids: shape (N, d_event)
-            if centroids.size:
-                norms = np.linalg.norm(centroids, axis=1, keepdims=True)
-                centroids = centroids / (norms + eps)
-
-
-        # ---------- Optional fusion ----------
+        # ---------------- Optional fusion ----------------
         if fuse == "concat":
-            if N > 0:
-                fact_features = np.concatenate([text_vecs, centroids], axis=1)
-            else:
-                fact_features = np.zeros((0, d_text + d_event), dtype=np.float32)
+            fact_features = np.concatenate([text_vecs, event_vecs], axis=1) if N > 0 else np.zeros((0, 2 * d), dtype=np.float32)
         else:
             fact_features = None
 
-        # ---------- Edge weighting via EdgeDecay ----------
+        # ---------------- Edge weighting via EdgeDecay ----------------
         if edge_decay is None or N == 0:
             weighting = np.ones((N,), dtype=np.float32)
         else:
             dt = decay_type.lower()
-            if dt == "linear":
-                fn = edge_decay.linear
-            elif dt == "exponential":
-                fn = edge_decay.exponential
-            elif dt == "logarithmic":
-                fn = edge_decay.logarithmic
-            elif dt == "sigmoid":
-                fn = edge_decay.sigmoid
-            elif dt == "quadratic":
-                fn = edge_decay.quadratic
+            if   dt == "linear":       fn = edge_decay.linear
+            elif dt == "exponential":  fn = edge_decay.exponential
+            elif dt == "logarithmic":  fn = edge_decay.logarithmic
+            elif dt == "sigmoid":      fn = edge_decay.sigmoid
+            elif dt == "quadratic":    fn = edge_decay.quadratic
             else:
                 raise ValueError(f"Unknown decay_type: {decay_type!r}")
-            weighting = np.array([fn(int(d)) for d in delta_days], dtype=np.float32)
+            weighting = np.array([fn(int(dy)) for dy in delta_days], dtype=np.float32)
             weighting = np.clip(weighting, 0.0, 1.0)
 
         edge = {
@@ -153,19 +156,14 @@ class SubGraph:
             "weighting": weighting,    # (N,)
         }
 
-        # ---------- Company features ----------
-        if company_features is None:
-            comp_x = np.array([[1.0]], dtype=np.float32)
-        else:
-            comp_x = np.asarray(company_features, dtype=np.float32).reshape(1, -1)
-
+        # Return; keep an alias for backward compatibility if your code still expects "fact_event_centroids".
         return {
-            "fact_text_embeddings": text_vecs,   # (N, d_text)
-            "fact_event_centroids": centroids,   # (N, d_event)
-            "fact_features": fact_features,      # (N, d_text+d_event) iff fuse=="concat"
-            "edge": edge,                        # {"sentiment": (N,), "weighting": (N,)}
-            "company_features": comp_x,          # (1, p)
+            "fact_text_embeddings": text_vecs,      # (N, d)
+            "fact_event_embeddings": event_vecs,    # (N, d)
+            "fact_features": fact_features,         # (N, 2d) iff fuse=="concat"
+            "edge": edge,                           # {"sentiment": (N,), "weighting": (N,)}
         }
+
     
     def visualise_pricing(self):
         conn = sqlite3.connect(config.DB_PATH)
@@ -219,8 +217,7 @@ class SubGraph:
     def get_fact_node_features(
         self,
         text_encoder,
-        id2centroid: dict[int, np.ndarray],
-        edge_decay=None,
+        edge_decay=EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),
         decay_type: str = "exponential",
         fuse: str | None = "concat",
         l2_normalize: bool = True
@@ -236,8 +233,7 @@ class SubGraph:
             fact_features: (N_facts, d) NumPy array of fused fact embeddings.
         """
         encoded = self.encode(
-            text_encoder,
-            id2centroid,
+            text_encoder=text_encoder,
             fuse=fuse,
             l2_normalize=l2_normalize,
             edge_decay=edge_decay,
@@ -316,7 +312,6 @@ class SubGraph:
     def to_numpy_graph(
         self,
         text_encoder,
-        id2centroid: dict[int, np.ndarray],
         edge_decay=None,
         decay_type: str = "exponential",
         fuse: str | None = "concat",
@@ -342,7 +337,6 @@ class SubGraph:
 
         fact_features = self.get_fact_node_features(
             text_encoder=text_encoder,
-            id2centroid=id2centroid,
             edge_decay=edge_decay,
             decay_type=decay_type,
             fuse=fuse,
@@ -367,6 +361,41 @@ class SubGraph:
             "edge_attr": edge_attr,
             "ticker_index": ticker_index
         }
+    
+    def to_pyg_data(self, text_encoder, id2centroid, known_tickers, edge_decay, decay_type="exponential", fuse="concat", l2_normalize=True):
+
+        np_graph = self.to_numpy_graph(
+            text_encoder=text_encoder,
+            id2centroid=id2centroid,
+            known_tickers=known_tickers,
+            edge_decay=edge_decay,
+            decay_type=decay_type,
+            fuse=fuse,
+            l2_normalize=l2_normalize
+        )
+
+        data = HeteroData()
+
+        # Node features
+        data['fact'].x = torch.tensor(np_graph["fact_features"], dtype=torch.float)
+        data['company'].x = torch.tensor(np_graph["company_features"], dtype=torch.float)
+
+        # Edge indices and attributes
+        edge_index = torch.tensor(np_graph["edge_index"], dtype=torch.long)
+        edge_attr = torch.tensor(np_graph["edge_attr"], dtype=torch.float)
+
+        data['company', 'mentions', 'fact'].edge_index = edge_index
+        data['company', 'mentions', 'fact'].edge_attr = edge_attr
+
+        # Reverse edge (optional, often needed for GNNs)
+        data['fact', 'mentioned_in', 'company'].edge_index = edge_index.flip(0)
+        data['fact', 'mentioned_in', 'company'].edge_attr = edge_attr
+
+        # Graph label (for classification)
+        data['graph_label'] = torch.tensor(self.label, dtype=torch.long)
+
+        return data
+
 
 
     def visualise_numpy_graph(
@@ -523,7 +552,6 @@ if __name__ == "__main__":
     # 3) encode (choose fuse=None or "concat")
     out = sg.to_numpy_graph(
         text_encoder=encoder,
-        id2centroid=id2centroid,
         edge_decay=decay,
         decay_type="exponential",
         fuse="concat",
