@@ -3,9 +3,9 @@ from typing import Iterator, List, Optional
 from SubGraph import SubGraph
 import config
 
-class DataLoader:
+class SubGraphDataLoader:
     """
-    Load SubGraph JSONL and keep only entries with exactly `n_facts` facts.
+    Load SubGraph JSONL and keep only entries with at least `n_facts` facts.
     """
 
     def __init__(self, n_facts: int, jsonl_path: Optional[str] = None, limit: Optional[int] = None):
@@ -39,7 +39,7 @@ class DataLoader:
                     continue
                 obj = self._normalize_keys(json.loads(line))
                 facts = obj.get("fact_list") or []
-                if len(facts) == self.n_facts:
+                if len(facts) >= self.n_facts:
                     self.items.append(SubGraph(**obj))
                     count += 1
                     if limit is not None and count >= limit:
