@@ -177,7 +177,8 @@ def calculate_label(
     long_window_days: int = 20,
     short_grad_thresh: float = 0.02,
     long_grad_thresh: float = 0.005,
-    benchmark_ticker: str = "SPY"
+    benchmark_ticker: str = "SPY",
+    lookback_days: int = 2
 ) -> int:
     """
     Compute binary label using both EPS surprise and price momentum.
@@ -195,8 +196,10 @@ def calculate_label(
 
     # Convert ER date
     er_dt = datetime.strptime(er_date, "%Y-%m-%d").date()
-    short_end = er_dt + timedelta(days=short_window_days)
-    long_end = er_dt + timedelta(days=long_window_days)
+
+    init_date = er_dt - timedelta(days=-lookback_days)
+    short_end = init_date + timedelta(days=short_window_days+lookback_days)
+    long_end = init_date + timedelta(days=long_window_days+lookback_days)
 
     def fetch_prices(symbol: str):
         query = f"""
