@@ -135,6 +135,8 @@ we can still toggle different article type by the event_type centroid.
 
 - Compare to standard numerical methods (make these and run them)
 
+- Deduplicate via cosine distance between text embeddings (combined with event_type, date and sentiment)
+
 
 
 
@@ -151,4 +153,12 @@ Report sections to write:
 BASICALLY MAKE SURE THAT EVERY LINE OF CODE HAS SOME KIND OF REFERENCE IN REPORT
 - KG definition, background maths and out implementation, use as many fancy symbols as possible
 
+
+docker run --runtime nvidia --gpus all \
+    -v ~/.cache/huggingface:/root/.cache/huggingface \
+    --env "HUGGING_FACE_HUB_TOKEN=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" \
+    -p 8000:8000 \
+    --ipc=host \
+    vllm/vllm-openai:latest \
+    --model meta-llama/Llama-3.3-70B-Instruct
 
