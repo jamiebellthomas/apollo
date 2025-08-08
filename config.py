@@ -9,6 +9,7 @@ OPENAI_API_KEY = "sk-proj-cAgDX-tlt44hkDAJRnmD9UE87UqblWXa8E60mUHuGLniZt-i8L4io5
 SEC_API_KEY = "ec5c67df2f4fc7b712e3854cece2de54d1c1cc2523ee690ded5b02de2f92461f"
 GROQ_API_KEY = "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"
 GIT_TOKEN = "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"
+HUGGING_FACE = "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"
 
 # --- Filepaths ---
 METADATA_CSV_FILEPATH = "Data/filtered_sp500_metadata.csv"

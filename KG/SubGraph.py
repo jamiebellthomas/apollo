@@ -5,7 +5,7 @@ import config
 import json
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
-from typing import Dict, Iterable, List, Any, Tuple
+from typing import Dict, List, Set, Optional, Any
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import sqlite3
@@ -14,6 +14,9 @@ import networkx as nx
 from matplotlib.lines import Line2D
 import torch
 from torch_geometric.data import HeteroData
+import plotly.graph_objects as go
+import plotly.io as pio
+pio.renderers.default = "browser"
 
 import numpy as np
 import pandas as pd
@@ -58,13 +61,12 @@ class SubGraph:
     
     def encode(
         self,
-        text_encoder,
+        text_encoder: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2"),
         *,
         fuse: str | None = None,                 # None | "concat"
         l2_normalize: bool = True,
         edge_decay=EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),# instance of EdgeDecay or None
         decay_type: str = "exponential",          # "linear"|"exponential"|"logarithmic"|"sigmoid"|"quadratic"
-        company_features: np.ndarray | None = None,
         event_encode_mode: str = "spaces"           # "as_is" | "spaces" | "template_spaces" | "template_as_is"
     ) -> Dict[str, Any]:
         """
@@ -216,7 +218,7 @@ class SubGraph:
 
     def get_fact_node_features(
         self,
-        text_encoder,
+        text_encoder: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2"),
         edge_decay=EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),
         decay_type: str = "exponential",
         fuse: str | None = "concat",
@@ -311,8 +313,8 @@ class SubGraph:
 
     def to_numpy_graph(
         self,
-        text_encoder,
-        edge_decay=None,
+        text_encoder: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2"),
+        edge_decay: EdgeDecay = EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),
         decay_type: str = "exponential",
         fuse: str | None = "concat",
         l2_normalize: bool = True
@@ -354,47 +356,84 @@ class SubGraph:
             decay_type=decay_type
         )
 
+        # Add fact metadata to graph_dict for hover tooltips
+        fact_dates = [f.get("date", "N/A") for f in self.fact_list]
+        fact_texts = [f.get("raw_text", "") for f in self.fact_list]
+        fact_event_types = [f.get("event_type", "") for f in self.fact_list]
+
+        fact_sentiments = [float(f.get("sentiment", 0.0)) for f in self.fact_list]
+        fact_decays = [float(f.get("delta_days", 0)) for f in self.fact_list]  # we’ll apply decay function later
+
+        # Compute decay weights using the same logic as in encode()
+        decay_fn = getattr(edge_decay, decay_type.lower(), None)
+        if decay_fn:
+            fact_weights = [float(np.clip(decay_fn(int(d)), 0.0, 1.0)) for d in fact_decays]
+        else:
+            fact_weights = [1.0 for _ in fact_decays]
+
         return {
             "fact_features": fact_features,
             "ticker_features": ticker_features,
             "edge_index": edge_index,
             "edge_attr": edge_attr,
-            "ticker_index": ticker_index
+            "ticker_index": ticker_index,
+            "fact_dates": fact_dates,
+            "fact_texts": fact_texts,
+            "fact_sentiments": fact_sentiments,
+            "fact_weights": fact_weights,
+            "fact_event_types": fact_event_types
         }
-    
-    def to_pyg_data(self, text_encoder, id2centroid, known_tickers, edge_decay, decay_type="exponential", fuse="concat", l2_normalize=True):
 
-        np_graph = self.to_numpy_graph(
+
+
+    def to_pyg_data(
+        self,
+        text_encoder = SentenceTransformer("all-MiniLM-L6-v2"),
+        edge_decay = EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),
+        decay_type: str = "exponential",
+        fuse: Optional[str] = "concat",
+        l2_normalize: bool = True
+    ) -> HeteroData:
+        """
+        Convert this SubGraph into a PyTorch Geometric HeteroData object.
+        
+        Includes:
+        - Fact and company nodes
+        - Bi-directional edges with 'mentions' and 'mentioned_in' relations
+        - Edge attributes containing sentiment and decayed weighting
+        - Node features and graph-level label
+        """
+        np_graph: Dict[str, np.ndarray] = self.to_numpy_graph(
             text_encoder=text_encoder,
-            id2centroid=id2centroid,
-            known_tickers=known_tickers,
             edge_decay=edge_decay,
             decay_type=decay_type,
             fuse=fuse,
             l2_normalize=l2_normalize
         )
 
-        data = HeteroData()
 
-        # Node features
-        data['fact'].x = torch.tensor(np_graph["fact_features"], dtype=torch.float)
-        data['company'].x = torch.tensor(np_graph["company_features"], dtype=torch.float)
+        self.hetero_data = HeteroData()
 
-        # Edge indices and attributes
-        edge_index = torch.tensor(np_graph["edge_index"], dtype=torch.long)
-        edge_attr = torch.tensor(np_graph["edge_attr"], dtype=torch.float)
+        # Assign node features
+        self.hetero_data['fact'].x = torch.tensor(np_graph["fact_features"], dtype=torch.float)
+        self.hetero_data['company'].x = torch.tensor(np_graph["ticker_features"], dtype=torch.float)
 
-        data['company', 'mentions', 'fact'].edge_index = edge_index
-        data['company', 'mentions', 'fact'].edge_attr = edge_attr
+        # Create edge index and attributes
+        edge_index = torch.tensor(np_graph["edge_index"], dtype=torch.long)   # shape (2, E)
+        edge_attr = torch.tensor(np_graph["edge_attr"], dtype=torch.float)    # shape (E, 2)
 
-        # Reverse edge (optional, often needed for GNNs)
-        data['fact', 'mentioned_in', 'company'].edge_index = edge_index.flip(0)
-        data['fact', 'mentioned_in', 'company'].edge_attr = edge_attr
+        # Add forward edge: fact → company
+        self.hetero_data['fact', 'mentions', 'company'].edge_index = edge_index
+        self.hetero_data['fact', 'mentions', 'company'].edge_attr = edge_attr
 
-        # Graph label (for classification)
-        data['graph_label'] = torch.tensor(self.label, dtype=torch.long)
+        # Add reverse edge: company → fact
+        self.hetero_data['company', 'mentioned_in', 'fact'].edge_index = edge_index.flip(0)
+        self.hetero_data['company', 'mentioned_in', 'fact'].edge_attr = edge_attr.clone()
 
-        return data
+        # Add graph-level label
+        self.hetero_data['graph_label'] = torch.tensor(self.label, dtype=torch.long)
+
+        return self.hetero_data
 
 
 
@@ -493,7 +532,175 @@ class SubGraph:
         plt.show()
 
 
+    def visualise_numpy_graph_interactive(
+        self,
+        graph_dict: dict,
+        max_nodes: int = 30,
+        save_dir: str = "Plots/KGs"
+    ) -> go.Figure:
+        """
+        Visualises the SubGraph graph interactively using Plotly.
+        - Arrows encode sentiment polarity and strength.
+        - Nodes are facts or tickers.
+        - Saved to Plots/KGs/{ticker}_{reported_date}.html
+        """
 
+        pio.renderers.default = "browser"
+
+        fact_features = graph_dict["fact_features"]
+        ticker_index = graph_dict["ticker_index"]
+        edge_index = graph_dict["edge_index"]
+        edge_attr = graph_dict["edge_attr"]
+        fact_dates = graph_dict.get("fact_dates", [""] * fact_features.shape[0])
+        fact_texts = graph_dict.get("fact_texts", [""] * fact_features.shape[0])
+
+        num_facts = fact_features.shape[0]
+        num_tickers = len(ticker_index)
+
+        if num_facts + num_tickers > max_nodes:
+            print(f"Graph too large to visualise ({num_facts + num_tickers} nodes > max_nodes={max_nodes})")
+            return
+
+        G = nx.DiGraph()
+        fact_offset = num_facts
+        reverse_ticker_index = {v: k for k, v in ticker_index.items()}
+        ticker_name_to_node = {}
+
+        # Add fact nodes
+        for i in range(num_facts):
+            G.add_node(i, label=f"Fact {i}", type="fact", date=fact_dates[i], text=fact_texts[i])
+
+        # Add ticker nodes
+        for i in range(num_tickers):
+            ticker = reverse_ticker_index[i]
+            node_idx = fact_offset + i
+            G.add_node(node_idx, label=ticker, type="ticker")
+            ticker_name_to_node[ticker] = node_idx
+
+        primary_node = ticker_name_to_node.get(self.primary_ticker)
+
+        # Add edges with attributes
+        for i in range(edge_index.shape[1]):
+            fact_idx = edge_index[0, i]
+            ticker_idx = edge_index[1, i]
+            sentiment, decay = edge_attr[i]
+            src = fact_idx
+            dst = fact_offset + ticker_idx
+            weighted = sentiment * decay
+
+            G.add_edge(
+                src,
+                dst,
+                sentiment=sentiment,
+                decay=decay,
+                weighted_polarity=weighted,
+                color="green" if sentiment > 0 else "red" if sentiment < 0 else "gray",
+                width=1 + 6 * abs(weighted)
+            )
+
+        # Layout
+        pos = nx.spring_layout(G, seed=42, k=1.2, iterations=100)
+        if primary_node is not None:
+            pos[primary_node] = np.array([0.0, 0.0])  # center
+
+        # Build edge traces by colour
+        edge_groups = {"green": [], "red": [], "gray": []}
+        hover_groups = {"green": [], "red": [], "gray": []}
+
+        for u, v, attr in G.edges(data=True):
+            x0, y0 = pos[u]
+            x1, y1 = pos[v]
+            color = attr["color"]
+
+            fact_data = G.nodes[u]
+            hover_text = f"<b>Sentiment:</b> {attr['sentiment']:.2f}<br>"
+            hover_text += f"<b>Decay:</b> {attr['decay']:.2f}<br>"
+            hover_text += f"<b>Weighted:</b> {attr['weighted_polarity']:.2f}<br>"
+            hover_text += f"<b>Date:</b> {fact_data.get('date', 'N/A')}<br>"
+            hover_text += f"<b>Text:</b> {fact_data.get('text', '')[:300]}"
+
+            edge_groups[color].append(((x0, x1, None), (y0, y1, None)))
+            hover_groups[color].append(hover_text)
+
+        edge_traces = []
+        for color in ["green", "red", "gray"]:
+            xs, ys, texts = [], [], hover_groups[color]
+            for (x0, x1, _), (y0, y1, _) in edge_groups[color]:
+                xs += [x0, x1, None]
+                ys += [y0, y1, None]
+
+            trace = go.Scatter(
+                x=xs,
+                y=ys,
+                line=dict(width=2, color=color),
+                hoverinfo='text',
+                mode='lines',
+                text=texts,
+                name=f"{color.capitalize()} edges"
+            )
+            edge_traces.append(trace)
+
+        node_x, node_y, node_text, node_color, hover_texts = [], [], [], [], []
+        for node, data in G.nodes(data=True):
+            x, y = pos[node]
+            node_x.append(x)
+            node_y.append(y)
+            node_text.append(data['label'])
+            node_color.append('lightgray' if data['type'] == 'ticker' else 'skyblue')
+
+            if data['type'] == 'fact':
+                idx = node  # fact nodes are 0-indexed
+                sentiment = graph_dict["fact_sentiments"][idx]
+                decay = graph_dict["fact_weights"][idx]
+                event_type = graph_dict["fact_event_types"][idx]
+                hover_texts.append(
+                    f"<b>Fact</b><br>"
+                    f"Date: {data.get('date', 'N/A')}<br>"
+                    f"Raw Sentiment: {sentiment:.2f}<br>"
+                    f"Decay Coefficient: {decay:.2f}<br>"
+                    f"Event Type: {event_type}<br>"
+                    f"Text: {data.get('text', '')[:300]}"
+                )
+
+            else:
+                hover_texts.append(f"<b>Ticker</b><br>{data['label']}")
+
+        node_trace = go.Scatter(
+            x=node_x,
+            y=node_y,
+            mode='markers+text',
+            text=node_text,
+            textposition='bottom center',
+            hoverinfo='text',
+            hovertext=hover_texts,
+            marker=dict(
+                color=node_color,
+                size=20,
+                line=dict(width=1, color='black')
+            )
+        )
+
+        # Create figure
+        fig = go.Figure(
+            data=edge_traces + [node_trace],
+            layout=go.Layout(
+                title=dict(text=f"SubGraph for {self.primary_ticker} on {self.reported_date}", x=0.5),
+                showlegend=False,
+                hovermode='closest',
+                margin=dict(b=20, l=5, r=5, t=40),
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
+            )
+        )
+
+        # Save
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"{self.primary_ticker}_{self.reported_date}.html")
+        fig.write_html(save_path)
+        print(f"Graph saved to: {save_path}")
+
+        fig.show()
+        return fig
 
 
 
@@ -540,13 +747,12 @@ def load_first_with_exact_facts(jsonl_path: str, n: int = 5) -> dict:
 if __name__ == "__main__":
     # ---------- test ----------
     # 1) pick a subgraph with exactly 5 facts
-    obj = load_first_with_exact_facts(config.SUBGRAPHS_JSONL, n=46)
+    obj = load_first_with_exact_facts(config.SUBGRAPHS_JSONL, n=145)
     sg = SubGraph(**obj)
-    sg.visualise_pricing()  # Visualise the pricing data for the subgraph
+    # sg.visualise_pricing()  # Visualise the pricing data for the subgraph
 
     # 2) resources
     encoder = SentenceTransformer("all-MiniLM-L6-v2")
-    id2centroid = load_centroids_jsonl(config.CLUSTER_CENTROIDS)
     decay = EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.10)
 
     # 3) encode (choose fuse=None or "concat")
@@ -558,7 +764,17 @@ if __name__ == "__main__":
         l2_normalize=True
     )
 
-    # 4) visualise
-    sg.visualise_numpy_graph(out, max_nodes=2000)
+    # # 4) visualise
+    # sg.visualise_numpy_graph(graph_dict=out, 
+    #                          max_nodes=2000)
+
+    # # 5) convert to PyG HeteroData
+    # pyg_data = sg.to_pyg_data()
+    # print(pyg_data)
+
+    # 6) visualise interactive plot
+    fig = sg.visualise_numpy_graph_interactive(graph_dict=out,
+                                               max_nodes=2000)
+    
 
     

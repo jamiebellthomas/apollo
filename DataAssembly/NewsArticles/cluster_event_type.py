@@ -101,13 +101,13 @@ def plot_two_dim_embeddings(
     #         alpha=0.7,
     #     )
     
-    for i, etype in enumerate(event_types):
-        ax.annotate(
-            f"({labels[i]})",
-            (embeddings_2d[i, 0], embeddings_2d[i, 1]),
-            fontsize=8,
-            alpha=0.7,
-        )
+    # for i, etype in enumerate(event_types):
+    #     ax.annotate(
+    #         f"({labels[i]})",
+    #         (embeddings_2d[i, 0], embeddings_2d[i, 1]),
+    #         fontsize=8,
+    #         alpha=0.7,
+    #     )
 
 
 
