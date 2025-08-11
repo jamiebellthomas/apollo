@@ -25,8 +25,7 @@ from EdgeDecay import EdgeDecay
 class SubGraph:
     primary_ticker: str
     reported_date: str
-    predicted_eps: float | None
-    real_eps: float | None
+    eps_surprise: float | None
     fact_count: int
     fact_list: List[Dict[str, Any]]
     label: int
@@ -37,8 +36,7 @@ class SubGraph:
         payload = {
             "primary_ticker": self.primary_ticker,
             "reported_date": self.reported_date,
-            "predicted_eps": self.predicted_eps,
-            "real_eps": self.real_eps,
+            "eps_surprise": self.eps_surprise,
             "fact_count": self.fact_count,
             "fact_list": self.fact_list, 
             "label": self.label
@@ -747,7 +745,7 @@ def load_first_with_exact_facts(jsonl_path: str, n: int = 5) -> dict:
 if __name__ == "__main__":
     # ---------- test ----------
     # 1) pick a subgraph with exactly 5 facts
-    obj = load_first_with_exact_facts(config.SUBGRAPHS_JSONL, n=132)
+    obj = load_first_with_exact_facts(config.SUBGRAPHS_JSONL, n=150)
     sg = SubGraph(**obj)
     # sg.visualise_pricing()  # Visualise the pricing data for the subgraph
 
@@ -774,7 +772,7 @@ if __name__ == "__main__":
 
     # 6) visualise interactive plot
     fig = sg.visualise_numpy_graph_interactive(graph_dict=out,
-                                               max_nodes=2000)
+                                               max_nodes=3000)
     
 
     

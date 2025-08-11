@@ -155,6 +155,9 @@ BASICALLY MAKE SURE THAT EVERY LINE OF CODE HAS SOME KIND OF REFERENCE IN REPORT
 - KG definition, background maths and out implementation, use as many fancy symbols as possible
 - Data leakage prevention - A fact can relate to multiple tickers and therefore could appear in the test AND train sets 
 
+Before: 6124 lines in subgraphs.jsonl
+Now: 5888 lines in subgraphs.jsonl
+
 
 docker run --runtime nvidia --gpus all \
     -v ~/.cache/huggingface:/root/.cache/huggingface \

@@ -25,20 +25,19 @@ def load_eps(csv_path: str) -> pd.DataFrame:
     """
     df = pd.read_csv(csv_path)
     df = df.rename(columns={
-        "Ticker": "ticker",
-        "Reporting Date": "er_date",
+        "symbol": "ticker",
+        "period": "er_date",
         # NOTE: adjust these when proper EPS target/forecast columns arrive
-        "quarterly_raw_eps": "predicted_eps",
-        "quarterly_diluted_eps": "real_eps",
+        "surprise": "eps_surprise",
     })
     df["ticker"] = df["ticker"].astype(str)
     df["er_date"] = pd.to_datetime(df["er_date"]).dt.strftime("%Y-%m-%d")
-    for c in ("predicted_eps", "real_eps"):
+    for c in ("peps_surprise"):
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
         else:
             df[c] = np.nan
-    return df[["ticker", "er_date", "predicted_eps", "real_eps"]]
+    return df[["ticker", "er_date", "eps_surprise"]]
 
 
 def load_facts(jsonl_path: str, sentiment_min: float) -> pd.DataFrame:
@@ -168,75 +167,111 @@ def select_facts_for_instance(
     return fact_list
 
 def calculate_label(
-    predicted_eps: float | None,
-    real_eps: float | None,
+    eps_surprise: float | None,
     ticker: str,
     er_date: str,
-    surprise_threshold: float = 1.05,
-    short_window_days: int = 3,
-    long_window_days: int = 20,
-    short_grad_thresh: float = 0.02,
-    long_grad_thresh: float = 0.005,
-    benchmark_ticker: str = "SPY",
-    lookback_days: int = 2
+    slope_bps_thresh: float = 20.0,
+    start_offset_days: int = 15,
+    end_offset_days: int = 40,
+    benchmark_ticker: str = "SPY"
 ) -> int:
     """
-    Compute binary label using both EPS surprise and price momentum.
-    Requires SQLite pricing DB created by user's create_pricing_db().
+    Label = 1 if:
+        1) CAR slope from day +start_offset_days to +end_offset_days >= slope_bps_thresh (bps/day), AND
+        2) Overall CAR slope from day 0 to +end_offset_days is > 0.
     """
-    return 0
-    if predicted_eps is None or real_eps is None:
-        return 0  # fallback default
 
-    # First, EPS surprise
-    if real_eps / predicted_eps < surprise_threshold:
+    if eps_surprise is not None and eps_surprise < 0.0:
         return 0
 
-    # Connect to pricing DB
-    conn = sqlite3.connect(config.DB_PATH)
+    try:
+        er_dt = datetime.strptime(er_date, "%Y-%m-%d").date()
+    except ValueError:
+        return 0
 
-    # Convert ER date
-    er_dt = datetime.strptime(er_date, "%Y-%m-%d").date()
+    fetch_start = (er_dt - timedelta(days=7)).strftime("%Y-%m-%d")
+    fetch_end   = (er_dt + timedelta(days=120)).strftime("%Y-%m-%d")
 
-    init_date = er_dt - timedelta(days=-lookback_days)
-    short_end = init_date + timedelta(days=short_window_days+lookback_days)
-    long_end = init_date + timedelta(days=long_window_days+lookback_days)
-
-    def fetch_prices(symbol: str):
-        query = f"""
-        SELECT date, adjusted_close FROM {config.PRICING_TABLE_NAME}
-        WHERE ticker = ? AND date BETWEEN ? AND ?
-        ORDER BY date ASC
+    def fetch_prices(conn, symbol: str) -> pd.DataFrame:
+        q = f"""
+            SELECT date, adjusted_close
+            FROM {config.PRICING_TABLE_NAME}
+            WHERE ticker = ? AND date BETWEEN ? AND ?
+            ORDER BY date ASC;
         """
-        df = pd.read_sql_query(query, conn, params=(symbol, er_dt, long_end))
-        df['date'] = pd.to_datetime(df['date'])
+        df = pd.read_sql_query(q, conn, params=(symbol, fetch_start, fetch_end))
+        if df.empty:
+            return df
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values("date").rename(columns={"adjusted_close": "px"}).reset_index(drop=True)
         return df
 
-    stock = fetch_prices(ticker)
-    bench = fetch_prices(benchmark_ticker)
-    conn.close()
+    try:
+        conn = sqlite3.connect(config.DB_PATH)
+        stock = fetch_prices(conn, ticker)
+        bench = fetch_prices(conn, benchmark_ticker)
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
-    if len(stock) < long_window_days or len(bench) < long_window_days:
+    if stock.empty or bench.empty:
         return 0
 
-    # Merge for abnormal return calculation
-    df = pd.merge(stock, bench, on="date", suffixes=("_stock", "_bench"))
-    df["abnormal"] = df["adjusted_close_stock"].pct_change() - df["adjusted_close_bench"].pct_change()
-    df = df.dropna()
+    df = pd.merge(stock, bench, on="date", how="inner", suffixes=("_stock", "_bench"))
+    if df.empty or len(df) < 3:
+        return 0
 
-    short_return = df[df["date"] <= short_end]["abnormal"].sum()
-    long_return = df[(df["date"] > short_end) & (df["date"] <= long_end)]["abnormal"].sum()
+    pos = df.index[df["date"].dt.date >= er_dt]
+    if len(pos) == 0:
+        return 0
+    e_idx = int(pos[0])
 
-    if short_return > short_grad_thresh and long_return > long_grad_thresh:
-        return 1
-    return 0
+    if e_idx + end_offset_days >= len(df) or e_idx < 1:
+        return 0
+
+    df["r_stock"] = np.log(df["px_stock"] / df["px_stock"].shift(1))
+    df["r_bench"] = np.log(df["px_bench"] / df["px_bench"].shift(1))
+    df = df.dropna(subset=["r_stock", "r_bench"]).reset_index(drop=True)
+
+    pos2 = df.index[df["date"].dt.date >= er_dt]
+    if len(pos2) == 0:
+        return 0
+    e_idx = int(pos2[0])
+
+    df["abn"] = df["r_stock"] - df["r_bench"]
+    df["car"] = df["abn"].cumsum()
+
+    # Medium-term slope
+    i0 = e_idx + start_offset_days
+    i1 = e_idx + end_offset_days
+    if i0 >= i1 or i1 >= len(df):
+        return 0
+    y_med = df["car"].to_numpy()[i0:i1 + 1].astype(float)
+    if y_med.size < 2:
+        return 0
+    x_med = np.arange(y_med.size, dtype=float)
+    a_med, _ = np.polyfit(x_med, y_med, 1)
+    slope_bps_per_day_med = a_med * 10000.0
+
+    # Overall post-event slope (day 0 to end_offset_days)
+    y_overall = df["car"].to_numpy()[e_idx:i1 + 1].astype(float)
+    if y_overall.size < 2:
+        return 0
+    x_overall = np.arange(y_overall.size, dtype=float)
+    a_overall, _ = np.polyfit(x_overall, y_overall, 1)
+
+    # Decision: both conditions must hold
+    return int(slope_bps_per_day_med >= slope_bps_thresh and a_overall > 0.0)
+
+
 
 # ---------- Assembly ----------
 def build_subgraph_record(
     ticker: str,
     er_date: str,
-    predicted_eps: float | None,
-    real_eps: float | None,
+    eps_surprise: float | None,
     ticker_view: Dict[str, pd.DataFrame],
     facts_df: pd.DataFrame,
     window_days: int
@@ -251,14 +286,11 @@ def build_subgraph_record(
     return SubGraph(
         primary_ticker=ticker,
         reported_date=er_date,  # (matches your SubGraph field)
-        predicted_eps=None if pd.isna(predicted_eps) else float(predicted_eps),
-        real_eps=None if pd.isna(real_eps) else float(real_eps),
+        eps_surprise=None if pd.isna(eps_surprise) else float(eps_surprise),
         fact_count=len(fact_list),
         fact_list=fact_list,
-        # WE NEED TO GET PREDICTED EPS SO WE CAN START CALCULATING LABELS
         label=calculate_label(
-            predicted_eps=predicted_eps,
-            real_eps=real_eps,
+            eps_surprise=eps_surprise,
             ticker=ticker,
             er_date=er_date
         ),
@@ -289,8 +321,7 @@ def build_subgraphs_jsonl(
             yield build_subgraph_record(
                 ticker=r["ticker"],
                 er_date=r["er_date"],
-                predicted_eps=r["predicted_eps"],
-                real_eps=r["real_eps"],
+                eps_surprise=r["eps_surprise"],
                 ticker_view=ticker_view,
                 facts_df=facts,              # pass canonical facts df
                 window_days=window_days
@@ -303,7 +334,7 @@ def build_subgraphs_jsonl(
 # ---------- Entry point ----------
 def main() -> None:
     build_subgraphs_jsonl(
-        eps_csv_path=config.QUARTERLY_EPS_DATA_CSV,
+        eps_csv_path=config.EPS_SURPRISES,
         facts_jsonl_path=config.NEWS_FACTS,
         out_path=config.SUBGRAPHS_JSONL,
         window_days=config.WINDOW_DAYS,

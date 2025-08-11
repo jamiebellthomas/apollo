@@ -29,6 +29,7 @@ ANNUAL_EPS_DATA_CSV = "Data/eps_data_10k.csv"
 NEWS_FACTS = "Data/facts_output.jsonl"
 SUBGRAPHS_JSONL = "Data/subgraphs.jsonl"
 CLUSTER_CENTROIDS = "Data/cluster_centroids.jsonl"
+EPS_SURPRISES = "Data/eps_surprises_quarterly_2012_2024.csv"
 
 
 # --- Database Table Names ---
