@@ -137,7 +137,8 @@ we can still toggle different article type by the event_type centroid.
 
 - Deduplicate via cosine distance between text embeddings (combined with event_type, date and sentiment)
 
-
+- IMPORTANT: FOR FEATURE LABEL EVALUATION WERE JUST GOING TO USE THE MEDIUM PERIOD NOT THE INITIAL SPIKE, LOOK AT THE COOL PLOT WE MADE PROVING PEAD EFFECT
+THERE IS NO SHORT TERM SPIKE FOR WHATEVER REASON, BUT WE HAVE PROVED PEAD HAPPENS FOR POSITIVE SURPRISES. LABEL = POSITIVE CAR OVER MEDIUM PERIOD
 
 
 
@@ -152,6 +153,7 @@ Report sections to write:
 - Discuss LLM selection, use benchmark scores on the LLM model cardsin both general and long context (even though we'll use LLama3)
 BASICALLY MAKE SURE THAT EVERY LINE OF CODE HAS SOME KIND OF REFERENCE IN REPORT
 - KG definition, background maths and out implementation, use as many fancy symbols as possible
+- Data leakage prevention - A fact can relate to multiple tickers and therefore could appear in the test AND train sets 
 
 
 docker run --runtime nvidia --gpus all \
