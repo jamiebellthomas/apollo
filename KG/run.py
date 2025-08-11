@@ -1,24 +1,42 @@
+# train_hetero_gnn.py
 from __future__ import annotations
 
 from typing import List, Tuple, Dict
 import math
+import os
 import torch
-from torch import Tensor, nn
+from torch import nn, Tensor
 import torch.nn.functional as F
 from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
-from HeteroGNN import HeteroGNN  
-# ----------------------------
-# 1) small helpers
-# ----------------------------
 
-def attach_y(dataset: List[HeteroData], dtype: torch.dtype = torch.float) -> None:
-    """Mirror your 'graph_label' to the canonical .y field as float."""
+# --- bring your loader + model ---
+from SubGraphDataLoader import SubGraphDataLoader
+# If your HeteroGNN is in another file, import it here:
+# from hetero_gnn import HeteroGNN
+from HeteroGNN import HeteroGNN  # <- adjust to your actual path/name
+
+
+# ----------------------------
+# Utilities
+# ----------------------------
+def set_seed(seed: int = 42) -> None:
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+def attach_y(dataset: List[HeteroData]) -> None:
+    """
+    Mirror your graph-level label to the canonical .y field (float),
+    shape [1] per graph. DataLoader will stack to [B].
+    """
     for g in dataset:
-        # Ensure shape [1] per-graph; DataLoader will stack to [B]
-        g.y = g["graph_label"].to(dtype=dtype).view(-1)
+        g.y = g["graph_label"].float().view(-1)
 
-def split_dataset(dataset: List[HeteroData], train_ratio=0.7, val_ratio=0.15, seed=42):
+def split_list(dataset: List[HeteroData], train_ratio=0.7, val_ratio=0.15, seed=42):
+    """
+    Simple randomized split for a list.
+    """
     g = torch.Generator().manual_seed(seed)
     perm = torch.randperm(len(dataset), generator=g).tolist()
     n = len(dataset)
@@ -30,64 +48,30 @@ def split_dataset(dataset: List[HeteroData], train_ratio=0.7, val_ratio=0.15, se
     return [dataset[i] for i in idx_train], [dataset[i] for i in idx_val], [dataset[i] for i in idx_test]
 
 def compute_pos_weight(dataset: List[HeteroData]) -> Tensor:
-    """pos_weight for BCEWithLogitsLoss = N_neg / N_pos."""
+    """
+    pos_weight for BCEWithLogitsLoss = N_neg / N_pos (helps with class imbalance).
+    """
     y = torch.cat([g.y for g in dataset]).float()
     pos = (y > 0.5).sum().item()
     neg = len(y) - pos
-    # Avoid div-by-zero
-    pw = (neg / max(pos, 1)) if pos > 0 else 1.0
-    return torch.tensor(pw, dtype=torch.float)
-
-# ----------------------------
-# 2) build dataset (example)
-# ----------------------------
-# Suppose you have a list of your SubGraph objects -> convert to HeteroData:
-# graphs: List[HeteroData] = [sg.to_pyg_data() for sg in subgraphs]
-
-# Make sure .y is present and float:
-# attach_y(graphs)
-
-# ----------------------------
-# 3) data splits & loaders
-# ----------------------------
-# train_set, val_set, test_set = split_dataset(graphs, train_ratio=0.7, val_ratio=0.15, seed=42)
-# attach_y(train_set); attach_y(val_set); attach_y(test_set)  # no-op if already done
+    if pos == 0:
+        return torch.tensor(1.0, dtype=torch.float)
+    return torch.tensor(neg / pos, dtype=torch.float)
 
 def make_loader(ds: List[HeteroData], batch_size: int, shuffle: bool) -> DataLoader:
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
 
-# train_loader = make_loader(train_set, batch_size=32, shuffle=True)
-# val_loader   = make_loader(val_set,   batch_size=64, shuffle=False)
-# test_loader  = make_loader(test_set,  batch_size=64, shuffle=False)
-
-# ----------------------------
-# 4) model / loss / optimizer
-# ----------------------------
-# Instantiate the model with dataset metadata:
-# metadata = train_set[0].metadata()
-# model = HeteroGNN(metadata=metadata, hidden_channels=64, num_layers=2, edge_weight_index=1, dropout=0.3)
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# model.to(device)
-
-# Because the model uses LazyLinear for per-type projections,
-# initialize parameters with a dry forward on one batch *before* creating the optimizer.
 @torch.no_grad()
-def init_lazy_params(m: nn.Module, sample_batch: HeteroData, device: torch.device) -> None:
-    m.to(device)
-    _ = m(sample_batch.to(device))
-
-# sample_batch = next(iter(train_loader))
-# init_lazy_params(model, sample_batch, device)
-
-# Handle class imbalance if present:
-# pos_weight = compute_pos_weight(train_set).to(device)
-# criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)  # or nn.BCEWithLogitsLoss()
-
-# optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+def init_lazy_params(model: nn.Module, sample_batch: HeteroData, device: torch.device) -> None:
+    """
+    GCNConv with in_channels=(-1, -1) lazily initializes on first forward.
+    We do a dry forward BEFORE creating the optimizer so those params get included.
+    """
+    model.to(device)
+    _ = model(sample_batch.to(device))
 
 # ----------------------------
-# 5) train / eval loops
+# Train / Eval loops
 # ----------------------------
 def train_one_epoch(
     model: nn.Module,
@@ -102,8 +86,8 @@ def train_one_epoch(
     n = 0
     for batch in loader:
         batch = batch.to(device)
-        logits: Tensor = model(batch)                 # [B]
-        y: Tensor = batch.y.float().to(device)        # [B]
+        logits: Tensor = model(batch)              # [B]
+        y: Tensor = batch.y                        # [B]
         loss: Tensor = criterion(logits, y)
 
         optimizer.zero_grad(set_to_none=True)
@@ -122,70 +106,95 @@ def evaluate(
     model: nn.Module,
     loader: DataLoader,
     device: torch.device,
+    report_loss: bool = True,
 ) -> Dict[str, float]:
+    """
+    Returns average loss (if report_loss) and accuracy.
+    """
     model.eval()
     total_loss = 0.0
     total = 0
     correct = 0
-    all_logits, all_targets = [], []
 
-    # Use the same loss as training just for reporting
-    dummy_crit = nn.BCEWithLogitsLoss(reduction="sum")
+    # Loss just for reporting; use reduction="sum" to average later.
+    criterion = nn.BCEWithLogitsLoss(reduction="sum")
 
     for batch in loader:
         batch = batch.to(device)
-        logits: Tensor = model(batch)                 # [B]
-        y: Tensor = batch.y.float().to(device)        # [B]
-        loss = dummy_crit(logits, y)
+        logits: Tensor = model(batch)    # [B]
+        y: Tensor = batch.y              # [B]
 
-        probs = torch.sigmoid(logits)
-        preds = (probs >= 0.5).long()
+        if report_loss:
+            loss = criterion(logits, y)
+            total_loss += loss.item()
+
+        preds = (torch.sigmoid(logits) >= 0.5).long()
         correct += (preds == y.long()).sum().item()
         total += y.numel()
 
-        total_loss += loss.item()
-        all_logits.append(logits.detach().cpu())
-        all_targets.append(y.detach().cpu())
+    metrics = {"acc": correct / max(total, 1)}
+    if report_loss:
+        metrics["loss"] = total_loss / max(total, 1)
+    return metrics
 
-    avg_loss = total_loss / max(total, 1)
-    acc = correct / max(total, 1)
-    return {"loss": avg_loss, "acc": acc}
 
 # ----------------------------
-# 6) full training script (wire it all together)
+# Main runner
 # ----------------------------
 def run_training(
-    train_set: List[HeteroData],
-    val_set: List[HeteroData],
-    test_set: List[HeteroData],
+    # --- data / encoding ---
+    n_facts: int = 50,
+    limit: int | None = None,
+    # --- model ---
     hidden_channels: int = 64,
     num_layers: int = 2,
-    edge_weight_index: int = 1,   # 1 = decayed_weight, 0 = sentiment
-    dropout: float = 0.3,
+    feature_dropout: float = 0.3,
+    edge_dropout: float = 0.0,
+    final_dropout: float = 0.1,
+    readout: str = "fact",          # 'fact' | 'company' | 'concat' | 'gated'
+    # --- training ---
+    train_ratio: float = 0.7,
+    val_ratio: float = 0.15,
     batch_size: int = 32,
-    epochs: int = 30,
+    epochs: int = 20,
     lr: float = 1e-3,
     weight_decay: float = 1e-4,
     seed: int = 42,
-) -> Tuple[nn.Module, Dict[str, float]]:
-    torch.manual_seed(seed)
+    grad_clip: float | None = 1.0,
+    ckpt_path: str = "best_model.pt",
+) -> Tuple[nn.Module, Dict[str, float], Dict[str, list]]:
+    set_seed(seed)
 
-    attach_y(train_set); attach_y(val_set); attach_y(test_set)
+    # 1) Load & encode graphs -------------------------------------------------
+    loader = SubGraphDataLoader(n_facts=n_facts, limit=limit)
+    graphs: List[HeteroData] = loader.encode_all_to_heterodata()
+
+    if len(graphs) < 3:
+        raise RuntimeError(f"Need at least 3 graphs to split; got {len(graphs)}")
+
+    attach_y(graphs)
+
+    # 2) Split & DataLoaders --------------------------------------------------
+    train_set, val_set, test_set = split_list(graphs, train_ratio=train_ratio, val_ratio=val_ratio, seed=seed)
     train_loader = make_loader(train_set, batch_size=batch_size, shuffle=True)
-    val_loader   = make_loader(val_set,   batch_size=2*batch_size, shuffle=False)
-    test_loader  = make_loader(test_set,  batch_size=2*batch_size, shuffle=False)
+    val_loader   = make_loader(val_set,   batch_size=2 * batch_size, shuffle=False)
+    test_loader  = make_loader(test_set,  batch_size=2 * batch_size, shuffle=False)
 
+    # 3) Model / Loss / Optimizer --------------------------------------------
     metadata = train_set[0].metadata()
     model = HeteroGNN(
         metadata=metadata,
         hidden_channels=hidden_channels,
         num_layers=num_layers,
-        edge_weight_index=edge_weight_index,
-        dropout=dropout,
+        feature_dropout=feature_dropout,
+        edge_dropout=edge_dropout,
+        final_dropout=final_dropout,
+        readout=readout,
     )
-    model.to(device)
 
-    # Initialize LazyLinear params
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Initialize lazy params BEFORE creating optimizer
     sample_batch = next(iter(train_loader))
     init_lazy_params(model, sample_batch, device)
 
@@ -194,31 +203,88 @@ def run_training(
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
+    # ---- NEW: training history we’ll fill every epoch ----
+    history: Dict[str, list] = {"train_loss": [], "val_loss": [], "val_acc": []}
+
+    # 4) Train loop with best checkpointing ----------------------------------
     best_val = math.inf
     best_state: Dict[str, Tensor] | None = None
 
     for epoch in range(1, epochs + 1):
-        tr_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
+        train_loss = train_one_epoch(
+            model=model,
+            loader=train_loader,
+            optimizer=optimizer,
+            criterion=criterion,
+            device=device,
+            grad_clip=grad_clip,
+        )
         val_metrics = evaluate(model, val_loader, device)
+
+        # ---- NEW: record into history ----
+        history["train_loss"].append(train_loss)
+        history["val_loss"].append(val_metrics["loss"])
+        history["val_acc"].append(val_metrics["acc"])
 
         if val_metrics["loss"] < best_val:
             best_val = val_metrics["loss"]
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
 
-        print(f"Epoch {epoch:03d} | train_loss={tr_loss:.4f} "
-              f"| val_loss={val_metrics['loss']:.4f} | val_acc={val_metrics['acc']:.3f}")
+        print(
+            f"Epoch {epoch:03d} | "
+            f"train_loss={train_loss:.4f} | "
+            f"val_loss={val_metrics['loss']:.4f} | "
+            f"val_acc={val_metrics['acc']:.3f}"
+        )
 
     if best_state is not None:
         model.load_state_dict(best_state)
+        if ckpt_path:
+            torch.save(best_state, ckpt_path)
+            print(f"[ckpt] Best model saved to {ckpt_path}")
 
+    # 5) Final test -----------------------------------------------------------
     test_metrics = evaluate(model, test_loader, device)
     print(f"TEST | loss={test_metrics['loss']:.4f} | acc={test_metrics['acc']:.3f}")
 
-    return model, test_metrics
+    # ---- NEW: return history as third item ----
+    return model, test_metrics, history
+
+
 
 # ----------------------------
-# 7) usage example
+# Script entrypoint
 # ----------------------------
-# graphs = [sg.to_pyg_data() for sg in subgraphs]   # your construction
-# train_set, val_set, test_set = split_dataset(graphs)
-# model, test_metrics = run_training(train_set, val_set, test_set)
+if __name__ == "__main__":
+    model, test_metrics, history = run_training(
+        n_facts=50,
+        limit=None,
+        hidden_channels=64,
+        num_layers=2,
+        feature_dropout=0.3,
+        edge_dropout=0.1,
+        final_dropout=0.1,
+        readout="fact",
+        batch_size=32,
+        epochs=20,
+        lr=1e-3,
+        weight_decay=1e-4,
+        seed=42,
+        ckpt_path="best_model.pt",
+    )
+
+    print(test_metrics)
+
+    # --- NEW: Plot losses ---
+    import matplotlib.pyplot as plt
+
+    plt.figure()
+    plt.plot(history["train_loss"], label="train loss")
+    plt.plot(history["val_loss"], label="val loss")
+    plt.xlabel("epoch")
+    plt.ylabel("BCE loss")
+    plt.title("Training/Validation Loss")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()  # or: plt.savefig("loss_curve.png")
+

@@ -747,7 +747,7 @@ def load_first_with_exact_facts(jsonl_path: str, n: int = 5) -> dict:
 if __name__ == "__main__":
     # ---------- test ----------
     # 1) pick a subgraph with exactly 5 facts
-    obj = load_first_with_exact_facts(config.SUBGRAPHS_JSONL, n=145)
+    obj = load_first_with_exact_facts(config.SUBGRAPHS_JSONL, n=132)
     sg = SubGraph(**obj)
     # sg.visualise_pricing()  # Visualise the pricing data for the subgraph
 
