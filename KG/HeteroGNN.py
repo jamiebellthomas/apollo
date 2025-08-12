@@ -2,9 +2,9 @@ from typing import Dict, Tuple, List, Optional, Literal
 import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
-from torch_geometric.nn import HeteroConv, GCNConv, global_mean_pool, global_add_pool
+from torch_geometric.nn import HeteroConv, GraphConv, global_mean_pool, global_add_pool
 from torch_geometric.data import HeteroData
-from torch_geometric.utils import dropout_adj
+from torch_geometric.utils import dropout_edge
 
 # An edge type in PyG hetero graphs is a 3-tuple: (src_node_type, relation_name, dst_node_type)
 EdgeType = Tuple[str, str, str]
@@ -84,12 +84,19 @@ class HeteroGNN(nn.Module):
 
         # 3) HeteroConv stack: each relation gets a GCNConv; outputs stay at hidden_channels
         self.convs = nn.ModuleList([
-            HeteroConv(
-                {et: GCNConv(-1, hidden_channels) for et in self.edge_types},
-                aggr="sum",
-            )
-            for _ in range(num_layers)
-        ])
+        HeteroConv(
+            {
+                et: GraphConv(
+                    (-1, -1),                  # bipartite: (in_src, in_dst)
+                    hidden_channels,
+                    aggr='add',                # default; fine to keep
+                )
+                for et in self.edge_types
+            },
+            aggr="sum",
+        )
+        for _ in range(num_layers)
+    ])
 
         # 4) Readout-specific params
         if self.readout == "gated":
@@ -140,9 +147,9 @@ class HeteroGNN(nn.Module):
                 w = self.edge_gate(self.edge_mixer(ea)).squeeze(-1)  # [E]
 
             if self.training and self.edge_dropout > 0.0 and ei.numel() > 0:
-                ei, w = dropout_adj(
-                    ei, w, p=self.edge_dropout, training=True, num_nodes=None
-                )
+                ei, edge_mask = dropout_edge(ei, p=self.edge_dropout)
+                # Apply the same mask to edge weights
+                w = w[edge_mask] if w is not None else None
 
             edge_index_dict[et] = ei
             edge_weight_dict[et] = w
@@ -221,7 +228,9 @@ class HeteroGNN(nn.Module):
 
         # HeteroConv stack
         for conv in self.convs:
-            x_dict = conv(x_dict, edge_index_dict, edge_weight=edge_weight_dict)
+            # RIGHT
+            x_dict = conv(x_dict, edge_index_dict, edge_weight_dict=edge_weight_dict)
+
             # ReLU → per-type LayerNorm → feature dropout
             x_dict = {
                 nt: F.dropout(

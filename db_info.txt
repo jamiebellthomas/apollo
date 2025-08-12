@@ -167,3 +167,35 @@ docker run --runtime nvidia --gpus all \
     vllm/vllm-openai:latest \
     --model meta-llama/Llama-3.3-70B-Instruct
 
+
+
+
+What each feature is (and why it’s here)
+Momentum / returns
+cumret_20, cumret_60, cumret_252 — Sum of log returns over 1m/3m/1y. Captures recent trend and long-term trajectory.
+mom_10_minus_60 — Short-over-long momentum spread; highlights accelerations or decelerations before earnings.
+Moving-average gaps
+ma_gap_20, ma_gap_60 — Distance of price from 1m/3m average at day 0. A proxy for “overbought/oversold” relative to recent baseline.
+Up-day share
+up_pct_20, up_pct_60 — Fraction of positive return days. A robust momentum proxy less sensitive to a single outlier move.
+Volatility / downside risk / drawdowns
+vol_20, vol_60 — Realized volatility; captures regime shifts in risk leading into earnings.
+downside_vol_20, downside_vol_60 — Penalizes negative shocks more; useful if bad-news fear dominates.
+max_dd_60, max_dd_252 — Max drawdown in 3m/1y. Captures fragility/overhangs that can affect post-earnings behavior.
+Market-adjusted (vs SPY)
+abn_sum_20 — Sum of daily abnormal returns over 20d; isolates stock-specific drift from market noise pre-event.
+beta_60, alpha_60, resid_vol_60 — OLS of stock on SPY over 60d: sensitivity (beta), average excess (alpha), idiosyncratic risk (residual vol). These affect how much of a move is likely firm-specific.
+corr_60 — Correlation with market; low correlation can make firm news move the stock more distinctly.
+Trend (price & abnormal)
+slope_price_60 — Linear trend of log-price over 60d (per day). A clean momentum slope.
+slope_car_60_bps — Linear trend of CAR (cum abnormal return) over 60d, in bps/day. Direct proxy for pre-event stock-specific drift.
+Pre-event leakage proxy
+CAR_pre20 — Sum of abnormal returns from −20 to −1. Negative-surprise names often drift down into prints; this measures that anticipation/leakage directly.
+Technical
+RSI_14 — 14-day RSI (simple version). Popular overbought/oversold indicator; often correlates with near-term reversals or momentum continuation.
+MACD_diff, MACD_signal — Momentum oscillator and its signal line at day 0; captures medium-term trend state.
+52-week positioning
+pct_to_52w_high, pct_from_52w_low — Where the stock sits within its 1-year range. Extremes can moderate or amplify post-earnings reactions (mean reversion vs breakout).
+
+
+Link prediction algorithm
