@@ -2,6 +2,9 @@ import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config 
 
+# Set environment variable to disable tokenizer parallelism warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import json
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
@@ -21,12 +24,50 @@ pio.renderers.default = "browser"
 import numpy as np
 import pandas as pd
 from EdgeDecay import EdgeDecay
+
+# Suppress Hugging Face warnings
+import warnings
+import logging
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
+warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
+warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="transformers")
+
+FEATURE_NAMES = [
+            # Momentum / returns (stock-only)
+            "cumret_20", "cumret_60", "cumret_252",
+            "mom_10_minus_60",
+            # Moving-average gaps
+            "ma_gap_20", "ma_gap_60",
+            # Up-day share
+            "up_pct_20", "up_pct_60",
+            # Vol / downside / drawdown (stock-only)
+            "vol_20", "vol_60",
+            "downside_vol_20", "downside_vol_60",
+            "max_dd_60", "max_dd_252",
+            # Market-adjusted (vs SPY) & correlation
+            "abn_sum_20",
+            "beta_60", "alpha_60", "resid_vol_60",
+            "corr_60",
+            # Trend: price & abnormal (CAR slope over 60, bps/day)
+            "slope_price_60", "slope_car_60_bps",
+            # Pre-event information leakage proxy
+            "CAR_pre20",
+            # Technical
+            "RSI_14",
+            "MACD_diff", "MACD_signal",
+            # 52w relative position
+            "pct_to_52w_high", "pct_from_52w_low"
+        ]
+
+
+
 @dataclass
 class SubGraph:
     primary_ticker: str
     reported_date: str
-    predicted_eps: float | None
-    real_eps: float | None
+    eps_surprise: float | None
     fact_count: int
     fact_list: List[Dict[str, Any]]
     label: int
@@ -37,8 +78,7 @@ class SubGraph:
         payload = {
             "primary_ticker": self.primary_ticker,
             "reported_date": self.reported_date,
-            "predicted_eps": self.predicted_eps,
-            "real_eps": self.real_eps,
+            "eps_surprise": self.eps_surprise,
             "fact_count": self.fact_count,
             "fact_list": self.fact_list, 
             "label": self.label
@@ -61,7 +101,7 @@ class SubGraph:
     
     def encode(
         self,
-        text_encoder: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2"),
+        text_encoder: SentenceTransformer = None,
         *,
         fuse: str | None = None,                 # None | "concat"
         l2_normalize: bool = True,
@@ -83,6 +123,11 @@ class SubGraph:
         • L2-normalization is applied row-wise if enabled.
         • Edge weighting uses provided EdgeDecay with selected decay_type.
         """
+        if text_encoder is None:
+            # Use local cache directory
+            cache_dir = os.path.join(os.path.dirname(__file__), "model_cache")
+            text_encoder = SentenceTransformer("all-mpnet-base-v2", cache_folder=cache_dir)
+            
         facts = self.fact_list or []
         N = len(facts)
 
@@ -96,12 +141,14 @@ class SubGraph:
         event_texts = [self.canonicalize_event_text(et, mode=event_encode_mode) for et in event_types]
         # ---------------- Embed raw_text ----------------
         if N > 0:
-            text_vecs = text_encoder.encode(
-                texts,
-                convert_to_numpy=True,
-                normalize_embeddings=False,
-                show_progress_bar=False
-            ).astype(np.float32, copy=False)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                text_vecs = text_encoder.encode(
+                    texts,
+                    convert_to_numpy=True,
+                    normalize_embeddings=False,
+                    show_progress_bar=False
+                ).astype(np.float32, copy=False)
             d = text_vecs.shape[1]
         else:
             # best-effort dimension inference
@@ -110,12 +157,14 @@ class SubGraph:
 
         # ---------------- Embed event representations (same encoder) ----------------
         if N > 0:
-            event_vecs = text_encoder.encode(
-                event_texts,
-                convert_to_numpy=True,
-                normalize_embeddings=False,
-                show_progress_bar=False
-            ).astype(np.float32, copy=False)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                event_vecs = text_encoder.encode(
+                    event_texts,
+                    convert_to_numpy=True,
+                    normalize_embeddings=False,
+                    show_progress_bar=False
+                ).astype(np.float32, copy=False)
             # Sanity: ensure same dimension
             if event_vecs.shape[1] != d:
                 raise ValueError(f"Encoder produced mismatched dims: text d={d}, event d={event_vecs.shape[1]}")
@@ -211,14 +260,16 @@ class SubGraph:
         Returns:
             A set of ticker symbols (strings) that are valid for graph construction.
         """
-        df = pd.read_csv(config.METADATA_CSV_FILEPATH)
+        # Use absolute path for metadata CSV
+        csv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), config.METADATA_CSV_FILEPATH)
+        df = pd.read_csv(csv_path)
         return set(df['Symbol'].dropna().unique())
     
 
 
     def get_fact_node_features(
         self,
-        text_encoder: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2"),
+        text_encoder: SentenceTransformer = None,
         edge_decay=EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),
         decay_type: str = "exponential",
         fuse: str | None = "concat",
@@ -228,12 +279,18 @@ class SubGraph:
         Generates fact node embeddings using the encode() method.
 
         Args:
+            text_encoder: SentenceTransformer instance. If None, will use cached one.
             fuse: "concat" or None — determines whether to concatenate text and centroid embeddings.
             l2_normalize: Whether to apply row-wise L2 normalisation to embeddings.
 
         Returns:
             fact_features: (N_facts, d) NumPy array of fused fact embeddings.
         """
+        if text_encoder is None:
+            # Import here to avoid circular imports
+            from run import get_cached_transformer
+            text_encoder = get_cached_transformer()
+            
         encoded = self.encode(
             text_encoder=text_encoder,
             fuse=fuse,
@@ -246,24 +303,255 @@ class SubGraph:
 
     def get_ticker_node_features(
         self,
-        feature_dim: int,
-        valid_tickers: set
+        valid_tickers: set | None = None
     ) -> tuple[np.ndarray, dict[str, int]]:
         """
-        Builds zero-initialised features for ticker nodes, filtered to valid tickers.
+        Build per-ticker features from price history (up to the event date), market-adjusted vs SPY.
+        ALWAYS includes the primary ticker (if present in valid_tickers and pricing exists).
 
         Returns:
-            - ticker_features: (N_tickers, feature_dim) array
-            - ticker_index: dict mapping ticker symbols to row indices
+            - ticker_features: (N_tickers, D) float32 array
+            - ticker_index: dict[ticker -> row index]
         """
+        import sqlite3, math
+        import numpy as np
+        import pandas as pd
+        from datetime import timedelta
+        import config
+
+        FEATURE_NAMES = [
+            "cumret_20","cumret_60","cumret_252","mom_10_minus_60",
+            "ma_gap_20","ma_gap_60","up_pct_20","up_pct_60",
+            "vol_20","vol_60","downside_vol_20","downside_vol_60",
+            "max_dd_60","max_dd_252","abn_sum_20","beta_60","alpha_60",
+            "resid_vol_60","corr_60","slope_price_60","slope_car_60_bps",
+            "CAR_pre20","RSI_14","MACD_diff","MACD_signal",
+            "pct_to_52w_high","pct_from_52w_low"
+        ]
+        D = len(FEATURE_NAMES)
+
         facts = self.fact_list or []
+        event_date = pd.to_datetime(self.reported_date)
 
-        # Only tickers mentioned in facts *and* in the valid ticker universe
-        used_tickers = sorted({t for f in facts for t in f.get("tickers", []) if t in valid_tickers})
-        ticker_index = {ticker: i for i, ticker in enumerate(used_tickers)}
+        # --- universe: union(mentioned tickers, primary ticker) ---
+        mentioned = {t for f in facts for t in f.get("tickers", [])}
+        primary = {self.primary_ticker} if getattr(self, "primary_ticker", None) else set()
+        universe = (mentioned | primary)
+        if valid_tickers:
+            used_tickers = sorted(t for t in universe if t in valid_tickers)
+        else:
+            used_tickers = sorted(universe)
 
-        ticker_features = np.zeros((len(ticker_index), feature_dim), dtype=np.float32)
-        return ticker_features, ticker_index
+        ticker_index = {t: i for i, t in enumerate(used_tickers)}
+        feats = np.zeros((len(ticker_index), D), dtype=np.float32)
+        if not used_tickers:
+            return feats, ticker_index
+
+        # --- helpers ---
+        def _open_conn():
+            try:
+                # Use absolute path for database
+                db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), config.DB_PATH)
+                return sqlite3.connect(db_path)
+            except Exception:
+                # Fallback to relative path
+                return sqlite3.connect(config.DB_PATH)
+
+        def _fetch(symbol: str, start: str, end: str) -> pd.DataFrame:
+            q = f"""
+                SELECT date, adjusted_close
+                FROM {config.PRICING_TABLE_NAME}
+                WHERE ticker = ? AND date BETWEEN ? AND ?
+                ORDER BY date ASC;
+            """
+            with _open_conn() as conn:
+                df = pd.read_sql_query(q, conn, params=(symbol, start, end))
+            if df.empty:
+                return df
+            df["date"] = pd.to_datetime(df["date"])
+            df = df.sort_values("date").rename(columns={"adjusted_close":"px"}).reset_index(drop=True)
+            return df
+
+        def _ema(s: pd.Series, span: int) -> pd.Series:
+            return s.ewm(span=span, adjust=False).mean()
+
+        def _safe_std(a: pd.Series) -> float:
+            return float(a.std(ddof=0)) if len(a) > 1 else 0.0
+
+        def _lin_slope(y: np.ndarray) -> float:
+            if y.size < 2:
+                return 0.0
+            x = np.arange(y.size, dtype=float)
+            a, b = np.polyfit(x, y.astype(float), 1)
+            return float(a)
+
+        def _segment(df_merged: pd.DataFrame, e_idx: int, L: int):
+            end = e_idx
+            start = max(0, end - (L - 1))
+            return df_merged.iloc[start:end + 1].copy()
+
+        # --- pull enough window to snap to next trading day ---
+        fetch_start = (event_date - pd.Timedelta(days=420)).strftime("%Y-%m-%d")
+        fetch_end   = (event_date + pd.Timedelta(days=7)).strftime("%Y-%m-%d")
+
+        spy = _fetch("SPY", fetch_start, fetch_end)
+        if spy.empty:
+            # no benchmark: return zeros but keep indices
+            return feats, ticker_index
+
+        for tkr, row_i in ticker_index.items():
+            px = _fetch(tkr, fetch_start, fetch_end)
+            if px.empty:
+                continue
+
+            df = pd.merge(px, spy, on="date", how="inner", suffixes=("_s","_m"))
+            if df.empty or len(df) < 20:
+                continue
+
+            pos = df.index[df["date"] >= event_date]
+            if len(pos) == 0:
+                # fallback: last pre-event day
+                pre = df.index[df["date"] < event_date]
+                if len(pre) == 0:
+                    continue
+                e_idx = int(pre[-1])
+            else:
+                e_idx = int(pos[0])
+            if e_idx < 1:
+                continue
+
+            df["r_s"] = np.log(df["px_s"] / df["px_s"].shift(1))
+            df["r_m"] = np.log(df["px_m"] / df["px_m"].shift(1))
+            df = df.dropna(subset=["r_s","r_m"]).reset_index(drop=True)
+
+            pos2 = df.index[df["date"] >= event_date]
+            if len(pos2) == 0:
+                pre = df.index[df["date"] < event_date]
+                if len(pre) == 0:
+                    continue
+                e_idx = int(pre[-1])
+            else:
+                e_idx = int(pos2[0])
+
+            df["abn"] = df["r_s"] - df["r_m"]
+            df["car"] = df["abn"].cumsum()
+
+            seg20  = _segment(df, e_idx, 20)
+            seg60  = _segment(df, e_idx, 60)
+            seg252 = _segment(df, e_idx, 252)
+            seg10  = _segment(df, e_idx, 10)
+            seg14  = _segment(df, e_idx, 14)
+
+            def cumret(seg): return float(seg["r_s"].sum()) if len(seg) else 0.0
+            cumret_20  = cumret(seg20)
+            cumret_60  = cumret(seg60)
+            cumret_252 = cumret(seg252)
+            mom_10_minus_60 = (float(seg10["r_s"].sum()) if len(seg10) else 0.0) - cumret_60
+
+            px0 = float(df.iloc[e_idx]["px_s"])
+            ma20 = float(df["px_s"].iloc[max(0, e_idx-19):e_idx+1].mean()) if e_idx >= 19 else math.nan
+            ma60 = float(df["px_s"].iloc[max(0, e_idx-59):e_idx+1].mean()) if e_idx >= 59 else math.nan
+            ma_gap_20 = (px0 / ma20 - 1.0) if (ma20 and not math.isnan(ma20)) else 0.0
+            ma_gap_60 = (px0 / ma60 - 1.0) if (ma60 and not math.isnan(ma60)) else 0.0
+
+            up_pct_20 = float((seg20["r_s"] > 0).mean()) if len(seg20) else 0.0
+            up_pct_60 = float((seg60["r_s"] > 0).mean()) if len(seg60) else 0.0
+
+            vol_20 = _safe_std(seg20["r_s"])
+            vol_60 = _safe_std(seg60["r_s"])
+            downside_vol_20 = _safe_std(seg20["r_s"].where(seg20["r_s"] < 0, 0.0))
+            downside_vol_60 = _safe_std(seg60["r_s"].where(seg60["r_s"] < 0, 0.0))
+
+            def max_dd(seg):
+                if len(seg) < 2:
+                    return 0.0
+                prices = seg["px_s"].to_numpy()
+                run_max = np.maximum.accumulate(prices)
+                dd = prices / run_max - 1.0
+                return float(dd.min())
+            max_dd_60  = max_dd(seg60)
+            max_dd_252 = max_dd(seg252)
+
+            abn_sum_20 = float(seg20["abn"].sum()) if len(seg20) else 0.0
+
+            def ols_beta_alpha(seg):
+                if len(seg) < 5:
+                    return 0.0, 0.0, 0.0
+                x = seg["r_m"].to_numpy()
+                y = seg["r_s"].to_numpy()
+                a, b = np.polyfit(x, y, 1)  # a=beta, b=alpha (per-day)
+                resid = y - (a * x + b)
+                return float(a), float(b), float(resid.std(ddof=0))
+            beta_60, alpha_60, resid_vol_60 = ols_beta_alpha(seg60)
+
+            corr_60 = float(seg60["r_s"].corr(seg60["r_m"])) if len(seg60) >= 2 else 0.0
+
+            slope_price_60 = _lin_slope(np.log(seg60["px_s"].to_numpy())) if len(seg60) >= 2 else 0.0
+            if len(seg60) >= 2:
+                car60 = np.cumsum(seg60["abn"].to_numpy())
+                slope_car_60_bps = _lin_slope(car60) * 10000.0
+            else:
+                slope_car_60_bps = 0.0
+
+            if e_idx >= 20:
+                pre_slice = df.iloc[e_idx-20:e_idx]
+                CAR_pre20 = float(pre_slice["abn"].sum())
+            else:
+                CAR_pre20 = 0.0
+
+            if len(seg14) >= 2:
+                delta = seg14["px_s"].diff().dropna()
+                gains = delta.clip(lower=0).mean()
+                losses = (-delta.clip(upper=0)).mean()
+                RSI_14 = 100.0 if losses == 0 else 100.0 - (100.0 / (1.0 + gains / losses))
+            else:
+                RSI_14 = 50.0
+
+            close_series = df["px_s"].iloc[:e_idx+1]
+            if len(close_series) >= 26:
+                ema12 = _ema(close_series, 12)
+                ema26 = _ema(close_series, 26)
+                macd = ema12 - ema26
+                MACD_diff = float(macd.iloc[-1])
+                MACD_signal = float(_ema(macd, 9).iloc[-1]) if len(macd) >= 9 else 0.0
+            else:
+                MACD_diff = 0.0
+                MACD_signal = 0.0
+
+            if len(seg252) >= 2:
+                px_hist = seg252["px_s"].to_numpy()
+                hi, lo = float(px_hist.max()), float(px_hist.min())
+                pct_to_52w_high = (px0 / hi - 1.0) if hi > 0 else 0.0
+                pct_from_52w_low = (px0 / lo - 1.0) if lo > 0 else 0.0
+            else:
+                pct_to_52w_high = 0.0
+                pct_from_52w_low = 0.0
+
+            vec = np.array([
+                cumret_20, cumret_60, cumret_252,
+                mom_10_minus_60,
+                ma_gap_20, ma_gap_60,
+                up_pct_20, up_pct_60,
+                vol_20, vol_60,
+                downside_vol_20, downside_vol_60,
+                max_dd_60, max_dd_252,
+                abn_sum_20,
+                beta_60, alpha_60, resid_vol_60,
+                corr_60,
+                slope_price_60, slope_car_60_bps,
+                CAR_pre20,
+                RSI_14,
+                MACD_diff, MACD_signal,
+                pct_to_52w_high, pct_from_52w_low
+            ], dtype=np.float32)
+
+            feats[row_i, :] = vec
+
+        return feats, ticker_index
+
+
+
+
     
 
     def get_edges(
@@ -313,7 +601,7 @@ class SubGraph:
 
     def to_numpy_graph(
         self,
-        text_encoder: SentenceTransformer = SentenceTransformer("all-MiniLM-L6-v2"),
+        text_encoder: SentenceTransformer = None,
         edge_decay: EdgeDecay = EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),
         decay_type: str = "exponential",
         fuse: str | None = "concat",
@@ -324,6 +612,7 @@ class SubGraph:
         to a heterogeneous GNN input.
 
         Args:
+            text_encoder: SentenceTransformer instance. If None, will use cached one.
             fuse: Whether to concatenate text and centroid embeddings.
             l2_normalize: Whether to L2-normalise text and centroid embeddings.
 
@@ -335,6 +624,11 @@ class SubGraph:
             - 'edge_attr': (N_edges, 2)
             - 'ticker_index': mapping from ticker symbol to row index
         """
+        if text_encoder is None:
+            # Import here to avoid circular imports
+            from run import get_cached_transformer
+            text_encoder = get_cached_transformer()
+            
         valid_tickers = self.load_valid_tickers()
 
         fact_features = self.get_fact_node_features(
@@ -346,8 +640,7 @@ class SubGraph:
         )
 
         ticker_features, ticker_index = self.get_ticker_node_features(
-            feature_dim=fact_features.shape[1],
-            valid_tickers=valid_tickers
+            valid_tickers=valid_tickers,
         )
 
         edge_index, edge_attr = self.get_edges(
@@ -362,7 +655,7 @@ class SubGraph:
         fact_event_types = [f.get("event_type", "") for f in self.fact_list]
 
         fact_sentiments = [float(f.get("sentiment", 0.0)) for f in self.fact_list]
-        fact_decays = [float(f.get("delta_days", 0)) for f in self.fact_list]  # we’ll apply decay function later
+        fact_decays = [float(f.get("delta_days", 0)) for f in self.fact_list]  # we'll apply decay function later
 
         # Compute decay weights using the same logic as in encode()
         decay_fn = getattr(edge_decay, decay_type.lower(), None)
@@ -388,7 +681,7 @@ class SubGraph:
 
     def to_pyg_data(
         self,
-        text_encoder = SentenceTransformer("all-MiniLM-L6-v2"),
+        text_encoder = None,
         edge_decay = EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),
         decay_type: str = "exponential",
         fuse: Optional[str] = "concat",
@@ -403,6 +696,11 @@ class SubGraph:
         - Edge attributes containing sentiment and decayed weighting
         - Node features and graph-level label
         """
+        if text_encoder is None:
+            # Import here to avoid circular imports
+            from run import get_cached_transformer
+            text_encoder = get_cached_transformer()
+            
         np_graph: Dict[str, np.ndarray] = self.to_numpy_graph(
             text_encoder=text_encoder,
             edge_decay=edge_decay,
@@ -542,57 +840,106 @@ class SubGraph:
         Visualises the SubGraph graph interactively using Plotly.
         - Arrows encode sentiment polarity and strength.
         - Nodes are facts or tickers.
+        - Hover over a ticker to see price-based FEATURES.
         - Saved to Plots/KGs/{ticker}_{reported_date}.html
         """
 
         pio.renderers.default = "browser"
 
         fact_features = graph_dict["fact_features"]
-        ticker_index = graph_dict["ticker_index"]
-        edge_index = graph_dict["edge_index"]
-        edge_attr = graph_dict["edge_attr"]
-        fact_dates = graph_dict.get("fact_dates", [""] * fact_features.shape[0])
-        fact_texts = graph_dict.get("fact_texts", [""] * fact_features.shape[0])
+        ticker_index  = graph_dict["ticker_index"]
+        ticker_feats  = graph_dict.get("ticker_features", None)  # (N_tickers, D) where D=len(FEATURE_NAMES)
+        edge_index    = graph_dict["edge_index"]
+        edge_attr     = graph_dict["edge_attr"]
+        fact_dates    = graph_dict.get("fact_dates", [""] * fact_features.shape[0])
+        fact_texts    = graph_dict.get("fact_texts", [""] * fact_features.shape[0])
 
-        num_facts = fact_features.shape[0]
+        num_facts   = fact_features.shape[0]
         num_tickers = len(ticker_index)
 
         if num_facts + num_tickers > max_nodes:
             print(f"Graph too large to visualise ({num_facts + num_tickers} nodes > max_nodes={max_nodes})")
             return
 
+        # --- helper: nice formatting for ticker features ---
+        def _fmt_feature(name: str, val: float) -> str:
+            # Present percents, bps/day, etc.
+            try:
+                v = float(val)
+            except Exception:
+                return f"{name}: {val}"
+
+            # basis points/day features
+            if name in ("slope_car_60_bps",):
+                return f"{name}: {v:.2f} bps/day"
+
+            if name == "alpha_60":
+                # per-day alpha; show as bps/day
+                return f"{name}: {v*10000.0:.2f} bps/day"
+
+            if name == "slope_price_60":
+                # log-price slope per day; show in bps/day to compare with CAR slope
+                return f"{name}: {v*10000.0:.2f} bps/day"
+
+            # proportions/percents
+            if name.startswith(("cumret_", "ma_gap_", "pct_", "abn_sum_20", "CAR_pre20")):
+                return f"{name}: {v*100:.2f}%"
+
+            if name.startswith("up_pct_"):
+                return f"{name}: {v*100:.1f}%"
+
+            # correlations / beta / vols
+            if name in ("beta_60", "corr_60"):
+                return f"{name}: {v:.3f}"
+
+            if name in ("vol_20", "vol_60", "downside_vol_20", "downside_vol_60", "resid_vol_60"):
+                return f"{name}: {v*100:.2f}%"
+
+            if name == "RSI_14":
+                return f"{name}: {v:.1f}"
+
+            if name in ("MACD_diff", "MACD_signal"):
+                return f"{name}: {v:.4f}"
+
+            # default
+            return f"{name}: {v:.4f}"
+
+        # Build mapping index->ticker and vice versa
+        reverse_ticker_index = {v: k for k, v in ticker_index.items()}
+
+        # NetworkX graph
         G = nx.DiGraph()
         fact_offset = num_facts
-        reverse_ticker_index = {v: k for k, v in ticker_index.items()}
         ticker_name_to_node = {}
 
         # Add fact nodes
         for i in range(num_facts):
             G.add_node(i, label=f"Fact {i}", type="fact", date=fact_dates[i], text=fact_texts[i])
 
-        # Add ticker nodes
+        # Add ticker nodes (attach feature vector if provided)
         for i in range(num_tickers):
             ticker = reverse_ticker_index[i]
             node_idx = fact_offset + i
-            G.add_node(node_idx, label=ticker, type="ticker")
+            tfeat = ticker_feats[i] if (ticker_feats is not None and i < len(ticker_feats)) else None
+            G.add_node(node_idx, label=ticker, type="ticker", tfeat=tfeat)
             ticker_name_to_node[ticker] = node_idx
 
         primary_node = ticker_name_to_node.get(self.primary_ticker)
 
         # Add edges with attributes
         for i in range(edge_index.shape[1]):
-            fact_idx = edge_index[0, i]
-            ticker_idx = edge_index[1, i]
+            fact_idx = int(edge_index[0, i])
+            ticker_idx = int(edge_index[1, i])
             sentiment, decay = edge_attr[i]
             src = fact_idx
             dst = fact_offset + ticker_idx
-            weighted = sentiment * decay
+            weighted = float(sentiment) * float(decay)
 
             G.add_edge(
                 src,
                 dst,
-                sentiment=sentiment,
-                decay=decay,
+                sentiment=float(sentiment),
+                decay=float(decay),
                 weighted_polarity=weighted,
                 color="green" if sentiment > 0 else "red" if sentiment < 0 else "gray",
                 width=1 + 6 * abs(weighted)
@@ -640,6 +987,7 @@ class SubGraph:
             )
             edge_traces.append(trace)
 
+        # Node traces
         node_x, node_y, node_text, node_color, hover_texts = [], [], [], [], []
         for node, data in G.nodes(data=True):
             x, y = pos[node]
@@ -661,9 +1009,19 @@ class SubGraph:
                     f"Event Type: {event_type}<br>"
                     f"Text: {data.get('text', '')[:300]}"
                 )
-
             else:
-                hover_texts.append(f"<b>Ticker</b><br>{data['label']}")
+                # Ticker hover with features
+                tkr = data['label']
+                feat_vec = data.get('tfeat', None)
+                if feat_vec is None or len(FEATURE_NAMES) == 0:
+                    hover_texts.append(f"<b>Ticker</b><br>{tkr}")
+                else:
+                    lines = [f"<b>Ticker</b>: {tkr}"]
+                    # be defensive about length mismatches
+                    D = min(len(FEATURE_NAMES), len(feat_vec))
+                    for j in range(D):
+                        lines.append(_fmt_feature(FEATURE_NAMES[j], float(feat_vec[j])))
+                    hover_texts.append("<br>".join(lines))
 
         node_trace = go.Scatter(
             x=node_x,
@@ -684,7 +1042,7 @@ class SubGraph:
         fig = go.Figure(
             data=edge_traces + [node_trace],
             layout=go.Layout(
-                title=dict(text=f"SubGraph for {self.primary_ticker} on {self.reported_date}", x=0.5),
+                title=dict(text=f"SubGraph for {self.primary_ticker} on {self.reported_date} - Label:{self.label}", x=0.5),
                 showlegend=False,
                 hovermode='closest',
                 margin=dict(b=20, l=5, r=5, t=40),
@@ -701,6 +1059,7 @@ class SubGraph:
 
         fig.show()
         return fig
+
 
 
 
@@ -747,12 +1106,12 @@ def load_first_with_exact_facts(jsonl_path: str, n: int = 5) -> dict:
 if __name__ == "__main__":
     # ---------- test ----------
     # 1) pick a subgraph with exactly 5 facts
-    obj = load_first_with_exact_facts(config.SUBGRAPHS_JSONL, n=132)
+    obj = load_first_with_exact_facts(config.SUBGRAPHS_JSONL, n=85)
     sg = SubGraph(**obj)
     # sg.visualise_pricing()  # Visualise the pricing data for the subgraph
 
     # 2) resources
-    encoder = SentenceTransformer("all-MiniLM-L6-v2")
+    encoder = SentenceTransformer("all-mpnet-base-v2")
     decay = EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.10)
 
     # 3) encode (choose fuse=None or "concat")
@@ -774,7 +1133,7 @@ if __name__ == "__main__":
 
     # 6) visualise interactive plot
     fig = sg.visualise_numpy_graph_interactive(graph_dict=out,
-                                               max_nodes=2000)
+                                               max_nodes=3000)
     
 
     
