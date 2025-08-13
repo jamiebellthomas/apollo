@@ -13,7 +13,7 @@ Data/news_formatted_rows_clean.csv
 backup/news_associated_tickers.csv
 venv
 *.html
-/Results/*
+/Results/2*
 /KG/dataset_cache/*
 /KG/model_cache/*
 *.pt
