@@ -1,8 +1,6 @@
 *.db
 Data/nasdaq_exteral_data.csv
-*.png
-*.jpg
-*.jpeg
+
 passwords.txt
 *.log
 *.json
