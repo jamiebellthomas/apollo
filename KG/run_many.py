@@ -75,7 +75,7 @@ def run_multiple_experiments(
                 # Training configuration
                 batch_size=32,
                 epochs=100,
-                lr=5e-5,
+                lr=3e-5,
                 weight_decay=1e-4,
                 seed=seed,  # This is the key parameter that changes
                 grad_clip=1.0,
@@ -196,7 +196,7 @@ def run_multiple_experiments(
 
 if __name__ == "__main__":
     # Configuration - you can modify these parameters
-    NUM_RUNS = 15  # Number of experiments to run
+    NUM_RUNS = 20  # Number of experiments to run
     SEED_RANGE = (0, 1000000)  # Range for random seed generation
     
     print("Multiple Training Runs Script")
