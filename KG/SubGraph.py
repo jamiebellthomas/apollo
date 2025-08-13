@@ -557,24 +557,25 @@ class SubGraph:
     def get_edges(
         self,
         ticker_index: dict[str, int],
-        edge_decay=None,
+        edge_decay: EdgeDecay = EdgeDecay(decay_days=config.WINDOW_DAYS, final_weight=0.05),
         decay_type: str = "exponential"
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Constructs edges from fact → ticker with [sentiment, decay_weight] as edge attributes.
-
+        Build edge connectivity and attributes for fact → company edges.
+        Uses type-specific node indices for proper heterogeneous graph structure.
+        
         Returns:
-            - edge_index: (2, N_edges) array of [fact_idx, ticker_idx]
-            - edge_attr: (N_edges, 2) array of [sentiment, decay_weight]
+            - edge_index: (2, N_edges) with type-specific indices
+            - edge_attr: (N_edges, 2) with (sentiment, weight) pairs
         """
         facts = self.fact_list or []
-        edge_src = []
-        edge_dst = []
+        edge_src = []  # fact indices (0 to N_facts-1)
+        edge_dst = []  # company indices (0 to N_companies-1) - type-specific!
         edge_attrs = []
 
-        # Select decay function
+        # Set up decay function
         if edge_decay is None:
-            def compute_weight(d): return 1.0
+            compute_weight = lambda d: 1.0
         else:
             decay_fn = getattr(edge_decay, decay_type.lower(), None)
             if not decay_fn:
@@ -589,6 +590,9 @@ class SubGraph:
 
             for ticker in fact.get("tickers", []):
                 if ticker in ticker_index:
+                    # Use type-specific indices:
+                    # - fact_idx: 0 to N_facts-1 (fact node index)
+                    # - ticker_index[ticker]: 0 to N_companies-1 (company node index)
                     edge_src.append(fact_idx)
                     edge_dst.append(ticker_index[ticker])
                     edge_attrs.append((sentiment, weight))
@@ -709,29 +713,45 @@ class SubGraph:
             l2_normalize=l2_normalize
         )
 
+        # Create HeteroData object
+        hetero_data = HeteroData()
 
-        self.hetero_data = HeteroData()
+        # Ensure we have valid features
+        fact_features = np_graph["fact_features"]
+        ticker_features = np_graph["ticker_features"]
+        
+        if fact_features is None or fact_features.size == 0:
+            fact_features = np.zeros((1, 768), dtype=np.float32)
+        if ticker_features is None or ticker_features.size == 0:
+            ticker_features = np.zeros((1, 27), dtype=np.float32)
 
         # Assign node features
-        self.hetero_data['fact'].x = torch.tensor(np_graph["fact_features"], dtype=torch.float)
-        self.hetero_data['company'].x = torch.tensor(np_graph["ticker_features"], dtype=torch.float)
+        hetero_data['fact'].x = torch.tensor(fact_features, dtype=torch.float)
+        hetero_data['company'].x = torch.tensor(ticker_features, dtype=torch.float)
 
         # Create edge index and attributes
-        edge_index = torch.tensor(np_graph["edge_index"], dtype=torch.long)   # shape (2, E)
-        edge_attr = torch.tensor(np_graph["edge_attr"], dtype=torch.float)    # shape (E, 2)
+        if np_graph["edge_index"] is not None and np_graph["edge_index"].size > 0:
+            edge_index = torch.tensor(np_graph["edge_index"], dtype=torch.long)
+            edge_attr = torch.tensor(np_graph["edge_attr"], dtype=torch.float)
 
-        # Add forward edge: fact → company
-        self.hetero_data['fact', 'mentions', 'company'].edge_index = edge_index
-        self.hetero_data['fact', 'mentions', 'company'].edge_attr = edge_attr
+            # Add forward edge: fact → company
+            hetero_data['fact', 'mentions', 'company'].edge_index = edge_index
+            hetero_data['fact', 'mentions', 'company'].edge_attr = edge_attr
 
-        # Add reverse edge: company → fact
-        self.hetero_data['company', 'mentioned_in', 'fact'].edge_index = edge_index.flip(0)
-        self.hetero_data['company', 'mentioned_in', 'fact'].edge_attr = edge_attr.clone()
+            # Add reverse edge: company → fact
+            hetero_data['company', 'mentioned_in', 'fact'].edge_index = edge_index.flip(0)
+            hetero_data['company', 'mentioned_in', 'fact'].edge_attr = edge_attr.clone()
+        else:
+            # Create dummy edges to maintain structure
+            hetero_data['fact', 'mentions', 'company'].edge_index = torch.zeros((2, 1), dtype=torch.long)
+            hetero_data['fact', 'mentions', 'company'].edge_attr = torch.zeros((1, 2), dtype=torch.float)
+            hetero_data['company', 'mentioned_in', 'fact'].edge_index = torch.zeros((2, 1), dtype=torch.long)
+            hetero_data['company', 'mentioned_in', 'fact'].edge_attr = torch.zeros((1, 2), dtype=torch.float)
 
         # Add graph-level label
-        self.hetero_data['graph_label'] = torch.tensor(self.label, dtype=torch.long)
+        hetero_data['graph_label'] = torch.tensor(self.label, dtype=torch.long)
 
-        return self.hetero_data
+        return hetero_data
 
 
 

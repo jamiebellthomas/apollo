@@ -12,6 +12,33 @@ from typing import Dict, List
 from pathlib import Path
 from matplotlib.colors import ListedColormap
 import csv
+import warnings
+
+# Global cached sentence transformer to avoid repeated downloads
+_CACHED_TRANSFORMER = None
+
+def get_cached_transformer():
+    """Get or create a cached sentence transformer to avoid repeated downloads."""
+    global _CACHED_TRANSFORMER
+    if _CACHED_TRANSFORMER is None:
+        print("[transformer] Loading sentence transformer model from local cache...")
+        try:
+            # Use local cache directory - point to KG/model_cache
+            cache_dir = os.path.join(os.path.dirname(__file__), '../../KG/model_cache')
+            
+            # Suppress all warnings during model loading
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                _CACHED_TRANSFORMER = SentenceTransformer(
+                    "all-mpnet-base-v2",
+                    cache_folder=cache_dir
+                )
+            print("[transformer] Model loaded successfully from local cache")
+        except Exception as e:
+            print(f"[transformer] Error loading model: {e}")
+            raise
+    return _CACHED_TRANSFORMER
+
 
 def canonicalize_event_text(et: str, mode: str = "as_is") -> str:
     et = et.strip()
@@ -35,7 +62,6 @@ def collect_event_types(file_path: str = config.NEWS_FACTS) -> List[str]:
             etype = fact.get("event_type")
             if etype:
                 event_types.add(etype.strip().lower())
-    # event_types.discard('other')  # remove "other" (optional)
     event_types = list(event_types)
     print(f"Found {len(event_types)} unique event types.")
     # apply caononicalization to all event types
@@ -43,7 +69,7 @@ def collect_event_types(file_path: str = config.NEWS_FACTS) -> List[str]:
 
 
 def get_embeddings(event_types: List[str], canonicalization_method:str = "spaces") -> np.ndarray:
-    model = SentenceTransformer("all-MiniLM-L6-v2")  # or "yiyanghkust/finbert-embedding"
+    model = get_cached_transformer()
     event_types = [canonicalize_event_text(et, mode=canonicalization_method) for et in event_types]
     embeddings = model.encode(event_types, convert_to_numpy=True, normalize_embeddings=False)
     return embeddings.astype("float32", copy=False)
@@ -223,7 +249,7 @@ def annotate_facts_with_clusters_inplace(
             n_read += 1
             obj = json.loads(line)
             et = (obj.get("event_type") or "").strip().lower()
-            cid = None if et == "other" else etype_to_cluster.get(et)
+            cid = etype_to_cluster.get(et)
             if cid is None and drop_unmapped:
                 continue
             if cid is None:
@@ -256,7 +282,7 @@ def main():
         labels=labels,
         kmeans=kmeans,
         out_dir="Data/Clusters",
-        model_name="all-MiniLM-L6-v2",
+        model_name="all-mpnet-base-v2",  # Updated to match the new model
     )
 
     annotate_facts_with_clusters_inplace(

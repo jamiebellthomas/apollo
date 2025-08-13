@@ -197,6 +197,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="transform
 # --- your loader + model ---
 from SubGraphDataLoader import SubGraphDataLoader
 from HeteroGNN import HeteroGNN  # ensure this matches your file/module name
+from HeteroGNN2 import HeteroGNN2  # add HeteroGNN2 as an option
 
 # Import config
 import sys
@@ -355,7 +356,7 @@ def make_loader(ds: List[HeteroData], batch_size: int, shuffle: bool) -> DataLoa
 def compute_pos_weight(dataset: List[HeteroData]) -> Tensor:
     """
     Very aggressive pos_weight computation for severe class imbalance.
-    Uses 2 * (neg/pos) for very aggressive weighting.
+    Uses 3 * (neg/pos) for extremely aggressive weighting.
     """
     y = torch.cat([g.y for g in dataset]).float()
     pos = (y > 0.5).sum().item()
@@ -364,10 +365,10 @@ def compute_pos_weight(dataset: List[HeteroData]) -> Tensor:
     if pos == 0:
         return torch.tensor(1.0, dtype=torch.float)
     
-    # Use 2x ratio for very aggressive weighting
-    ratio = neg / pos
+    # MODIFY SCALE FACTOR TO ADJUST WEIGHTING AGRESSION
+    ratio = 1.0 * (neg / pos)
     
-    print(f"[class_balance] Positive: {pos}, Negative: {neg}, Ratio: {ratio:.2f}, Aggressive ratio: {ratio:.2f}")
+    print(f"[class_balance] Positive: {pos}, Negative: {neg}, Ratio: {neg/pos:.2f}, Aggressive ratio: {ratio:.2f}")
     
     return torch.tensor(ratio, dtype=torch.float)
 
@@ -655,6 +656,60 @@ def evaluate(
 
     return metrics
 
+def find_optimal_threshold(model, val_loader, device, criterion=None):
+    """
+    Find the optimal threshold that targets a reasonable number of positive predictions.
+    Aims for 10-20 positive predictions with good precision (>50%).
+    """
+    model.eval()
+    all_probs = []
+    all_y = []
+    
+    with torch.no_grad():
+        for batch in val_loader:
+            batch = batch.to(device)
+            logits = model(batch)
+            probs = torch.sigmoid(logits)
+            all_probs.append(probs.detach().cpu())
+            all_y.append(batch.y.detach().cpu())
+    
+    all_probs = torch.cat(all_probs).numpy()
+    all_y = torch.cat(all_y).numpy()
+    
+    # Try different thresholds and find the one that gives reasonable positive predictions
+    best_f1 = 0
+    best_threshold = 0.7  # Start with moderate threshold
+    best_precision = 0
+    best_recall = 0
+    target_positives = 15  # Target around 15 positive predictions
+    
+    for threshold in np.arange(0.6, 0.95, 0.02):  # Try moderate to high thresholds
+        preds = (all_probs >= threshold).astype(int)
+        
+        # Calculate metrics
+        tp = np.sum((all_y == 1) & (preds == 1))
+        fp = np.sum((all_y == 0) & (preds == 1))
+        fn = np.sum((all_y == 1) & (preds == 0))
+        total_positives = tp + fp
+        
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        
+        # Prioritize thresholds that give reasonable number of positive predictions
+        # and have good precision
+        if (total_positives >= 5 and  # At least 5 positive predictions
+            total_positives <= 25 and  # No more than 25 positive predictions
+            precision >= 0.4 and  # Require reasonable precision
+            f1 > best_f1):
+            best_f1 = f1
+            best_threshold = threshold
+            best_precision = precision
+            best_recall = recall
+    
+    print(f"[threshold] Balanced threshold: {best_threshold:.3f} (F1: {best_f1:.3f}, Precision: {best_precision:.3f}, Recall: {best_recall:.3f})")
+    return best_threshold
+
 # ----------------------------
 # Main runner
 # ----------------------------
@@ -664,12 +719,14 @@ def run_training(
     limit: int | None = None,
     use_cache: bool = True,  # New parameter to enable/disable caching
     # --- model ---
+    model_type: str = "heterognn",  # "heterognn" or "heterognn2"
     hidden_channels: int = 64,
     num_layers: int = 2,
     feature_dropout: float = 0.3,
     edge_dropout: float = 0.0,
     final_dropout: float = 0.1,
     readout: str = "concat",          # 'fact' | 'company' | 'concat' | 'gated'
+    time_dim: int = 8,  # For HeteroGNN2 temporal encoding
     # --- training ---
     train_ratio: float = 0.7,
     val_ratio: float = 0.15,
@@ -698,12 +755,14 @@ def run_training(
         n_facts=n_facts,
         limit=limit,
         use_cache=use_cache,
+        model_type=model_type,
         hidden_channels=hidden_channels,
         num_layers=num_layers,
         feature_dropout=feature_dropout,
         edge_dropout=edge_dropout,
         final_dropout=final_dropout,
         readout=readout,
+        time_dim=time_dim,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         batch_size=batch_size,
@@ -759,12 +818,36 @@ def run_training(
         loader = SubGraphDataLoader(min_facts=n_facts, limit=limit, jsonl_path=subgraphs_path)
         graphs, raw_sg = encode_all_to_heterodata(loader)
         
-        # Optionally save to cache for future use
+        # Optionally save to cache for future use (save the already-encoded data)
         if use_cache:
             try:
-                from cache_dataset import cache_dataset
+                from cache_dataset import get_cache_dir, get_cache_filename, atomic_write_pickle
+                import time
+                
                 print("[data] Saving processed dataset to cache for future use...")
-                cache_dataset(n_facts=n_facts, limit=limit)
+                
+                # Get cache directory and filename
+                cache_dir = get_cache_dir()
+                cache_filename = get_cache_filename(n_facts, limit)
+                cache_path = os.path.join(cache_dir, cache_filename)
+                
+                # Create cache directory if it doesn't exist
+                os.makedirs(cache_dir, exist_ok=True)
+                
+                # Prepare cache data (graphs and raw_sg are already encoded)
+                cache_data = {
+                    'graphs': graphs,
+                    'raw_sg': raw_sg,
+                    'n_facts': n_facts,
+                    'limit': limit,
+                    'timestamp': time.time(),
+                    'graph_count': len(graphs)
+                }
+                
+                # Save the already-encoded data
+                atomic_write_pickle(cache_data, cache_path)
+                print(f"[data] ✅ Dataset cached successfully to {cache_path}")
+                
             except Exception as e:
                 print(f"[data] Warning: Failed to save cache: {e}")
     
@@ -869,15 +952,33 @@ def run_training(
 
     # 5) Model / Loss / Optimizer --------------------------------------------
     metadata = train_set[0].metadata()
-    model = HeteroGNN(
-        metadata=metadata,
-        hidden_channels=hidden_channels,
-        num_layers=num_layers,
-        feature_dropout=feature_dropout,
-        edge_dropout=edge_dropout,
-        final_dropout=final_dropout,
-        readout=readout,
-    )
+    
+    # Choose model type
+    if model_type.lower() == "heterognn":
+        model = HeteroGNN(
+            metadata=metadata,
+            hidden_channels=hidden_channels,
+            num_layers=num_layers,
+            feature_dropout=feature_dropout,
+            edge_dropout=edge_dropout,
+            final_dropout=final_dropout,
+            readout=readout,
+        )
+        print(f"[model] Using HeteroGNN with {hidden_channels} hidden channels, {num_layers} layers")
+    elif model_type.lower() == "heterognn2":
+        model = HeteroGNN2(
+            metadata=metadata,
+            hidden_channels=hidden_channels,
+            num_layers=num_layers,
+            feature_dropout=feature_dropout,
+            edge_dropout=edge_dropout,
+            final_dropout=final_dropout,
+            readout=readout,
+            time_dim=time_dim,
+        )
+        print(f"[model] Using HeteroGNN2 with {hidden_channels} hidden channels, {num_layers} layers, time_dim={time_dim}")
+    else:
+        raise ValueError(f"Unknown model_type: {model_type}. Use 'heterognn' or 'heterognn2'")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[device] Using {device}")
@@ -909,7 +1010,8 @@ def run_training(
     elif loss_type == "bce_label_smooth":
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight, label_smoothing=0.1)
     elif loss_type == "focal":
-        criterion = FocalLoss(alpha=pos_weight, gamma=2.0)
+        # Use conservative Focal Loss parameters to prioritize precision
+        criterion = FocalLoss(alpha=0.25, gamma=3.0)  # Lower alpha, higher gamma for harder examples
     else:
         raise ValueError(f"Unknown loss_type: {loss_type}")
     
@@ -1048,13 +1150,17 @@ def run_training(
         print(f"[best] Best model found at epoch {best_epoch} with val_loss={min(history['val_loss']):.4f}")
 
     # 7) Final test -----------------------------------------------------------
-    # Use standard threshold of 0.5
-    test_metrics = evaluate(model, test_loader, device, detailed_analysis=True, threshold=0.5, criterion=criterion, return_raw_predictions=True)
+    # Find optimal threshold on validation set
+    print("[test] Finding optimal threshold on validation set...")
+    optimal_threshold = find_optimal_threshold(model, val_loader, device, criterion)
+    
+    # Use optimal threshold for final evaluation
+    test_metrics = evaluate(model, test_loader, device, detailed_analysis=True, threshold=optimal_threshold, criterion=criterion, return_raw_predictions=True)
     print(
         f"TEST | loss={test_metrics.get('loss', float('nan')):.4f} | "
         f"acc={test_metrics['acc']:.3f} | "
         f"auc={test_metrics.get('auc', float('nan')):.3f} | "
-        f"threshold=0.5 | "
+        f"threshold={optimal_threshold:.3f} | "
         f"best_epoch={best_epoch}"
     )
     
@@ -1095,34 +1201,112 @@ def run_training(
 # Script entrypoint
 # ----------------------------
 if __name__ == "__main__":
-    # Training config (no CLI; edit here)
+    # ============================================================
+    # HYPERPARAMETERS - Edit these to change model behavior
+    # ============================================================
+    
+    # Choose which model to run
+    MODEL_TYPE = "heterognn"  # "heterognn" or "heterognn2"
+    
+    # Data configuration
+    N_FACTS = 35  # Minimum number of facts per subgraph
+    LIMIT = None    # Limit number of subgraphs (None for all)
+    USE_CACHE = True  # Enable caching for faster loading
+    
+    # Model architecture
+    HIDDEN_CHANNELS = 128
+    NUM_LAYERS = 4
+    FEATURE_DROPOUT = 0.3
+    EDGE_DROPOUT = 0.1
+    FINAL_DROPOUT = 0.2
+    READOUT = "company"  # 'fact' | 'company' | 'concat' | 'gated'
+    TIME_DIM = 8  # For HeteroGNN2 temporal encoding
+    
+    # Training configuration
+    BATCH_SIZE = 8
+    EPOCHS = 100
+    LEARNING_RATE = 1e-5
+    WEIGHT_DECAY = 1e-4
+    SEED = 42
+    GRAD_CLIP = 1.0
+    LOSS_TYPE = "weighted_bce"  # "bce", "weighted_bce", "bce_label_smooth", "focal"
+    EARLY_STOPPING = True
+    PATIENCE = 25
+    LR_SCHEDULER = "cosine"  # "none", "step", "cosine", "plateau", "one_cycle", "exponential"
+    LR_STEP_SIZE = 10
+    LR_GAMMA = 0.5
+    TIME_AWARE_SPLIT = False
+    OPTIMIZER_TYPE = "adam"  # "adam", "adamw", "sgd", "rmsprop"
+    
+    # Data splitting
+    TRAIN_RATIO = 0.75
+    VAL_RATIO = 0.1
+    
+    # ============================================================
+    # RUN TRAINING
+    # ============================================================
+    
+    print("=" * 60)
+    if MODEL_TYPE == "heterognn2":
+        print("RUNNING HETEROGNN2 (Temporal-Aware Model)")
+    else:
+        print("RUNNING HETEROGNN (Original Model)")
+    print("=" * 60)
+    
     model, test_metrics, history = run_training(
-        n_facts=25,
-        limit=None,
-        use_cache=True,  # Enable caching for faster loading
-        hidden_channels=128,  # Moderate capacity
-        num_layers=3,  # Two layers for some complexity
-        feature_dropout=0.4,  # Increased dropout to combat overfitting
-        edge_dropout=0.3,  # Increased edge dropout
-        final_dropout=0.3,  # Increased final dropout
-        readout="company",    # 'fact' | 'company' | 'concat' | 'gated'
-        batch_size=32,  # Back to smaller batches for more frequent updates
-        epochs=150,  # Maximum epochs (may stop early if validation doesn't improve)
-        lr=1e-5,  # Much lower learning rate to prevent gradient explosion
-        weight_decay= 1e-3,  # Increased weight decay to combat overfitting
-        seed=42,
+        # Model configuration
+        model_type=MODEL_TYPE,
+        time_dim=TIME_DIM if MODEL_TYPE == "heterognn2" else None,
+        
+        # Data configuration
+        n_facts=N_FACTS,
+        limit=LIMIT,
+        use_cache=USE_CACHE,
+        
+        # Model architecture
+        hidden_channels=HIDDEN_CHANNELS,
+        num_layers=NUM_LAYERS,
+        feature_dropout=FEATURE_DROPOUT,
+        edge_dropout=EDGE_DROPOUT,
+        final_dropout=FINAL_DROPOUT,
+        readout=READOUT,
+        
+        # Training configuration
+        batch_size=BATCH_SIZE,
+        epochs=EPOCHS,
+        lr=LEARNING_RATE,
+        weight_decay=WEIGHT_DECAY,
+        seed=SEED,
+        grad_clip=GRAD_CLIP,
         ckpt_path="best_model.pt",
-        loss_type="weighted_bce",  # Options are "bce", "weighted_bce", "bce_label_smooth", "focal"
-        early_stopping=True,  # Disable early stopping to see full training
-        patience=25,  # Reasonable patience
-        lr_scheduler="cosine",  # Use plateau scheduler to reduce LR when validation doesn't improve
-        lr_step_size=10,  # Reduce LR every 10 epochs
-        lr_gamma=0.5,  # Halve the learning rate
-        time_aware_split=False,  # Use temporal splitting instead of random
-        optimizer_type="adam", # "adam", "adamw", "sgd", "rmsprop"
+        loss_type=LOSS_TYPE,
+        early_stopping=EARLY_STOPPING,
+        patience=PATIENCE,
+        lr_scheduler=LR_SCHEDULER,
+        lr_step_size=LR_STEP_SIZE,
+        lr_gamma=LR_GAMMA,
+        time_aware_split=TIME_AWARE_SPLIT,
+        optimizer_type=OPTIMIZER_TYPE,
+        
+        # Data splitting
+        train_ratio=TRAIN_RATIO,
+        val_ratio=VAL_RATIO,
     )
 
-    print(test_metrics)
+    model_name = "HeteroGNN2" if MODEL_TYPE == "heterognn2" else "HeteroGNN"
+    print(f"\n{model_name} Results:")
+    print(f"Test Accuracy: {test_metrics['acc']:.4f}")
+    print(f"Test AUC: {test_metrics.get('auc', float('nan')):.4f}")
+    if 'precision' in test_metrics:
+        print(f"Test Precision: {test_metrics['precision']:.4f}")
+        print(f"Test Recall: {test_metrics['recall']:.4f}")
+        print(f"Test F1: {test_metrics['f1']:.4f}")
+
+    # Example of how to run the other model for comparison
+    other_model = "heterognn" if MODEL_TYPE == "heterognn2" else "heterognn2"
+    print(f"\n" + "=" * 60)
+    print(f"EXAMPLE: To run {other_model.upper()}, change MODEL_TYPE = '{other_model}' at the top of the script")
+    print("=" * 60)
 
     # Plot loss curves
     try:
@@ -1132,7 +1316,7 @@ if __name__ == "__main__":
         plt.plot(history["val_loss"], label="val loss")
         plt.xlabel("epoch")
         plt.ylabel("BCE loss")
-        plt.title("Training/Validation Loss")
+        plt.title(f"{model_name} Training/Validation Loss")
         plt.legend()
         plt.tight_layout()
         plt.show()

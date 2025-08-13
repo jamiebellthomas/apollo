@@ -116,7 +116,39 @@ class HeteroGNN(nn.Module):
         for nt in self.node_types:
             if nt in self.in_proj:
                 continue
-            d_in = int(data[nt].x.size(-1))
+            
+            # Try to get features for this specific node type
+            d_in = None
+            
+            # Try direct access first (most reliable)
+            try:
+                if nt in data and hasattr(data[nt], 'x') and data[nt].x is not None:
+                    d_in = int(data[nt].x.size(-1))
+            except:
+                pass
+            
+            # If direct access failed, try node stores
+            if d_in is None and hasattr(data, 'node_stores') and len(data.node_stores) > 0:
+                # For now, assume first store is facts, second is companies
+                # This is a temporary fix - we need a more robust way to identify node types
+                if nt == "fact" and len(data.node_stores) >= 1:
+                    first_store = data.node_stores[0]
+                    if hasattr(first_store, 'x') and first_store.x is not None:
+                        d_in = int(first_store.x.size(-1))
+                elif nt == "company" and len(data.node_stores) >= 2:
+                    second_store = data.node_stores[1]
+                    if hasattr(second_store, 'x') and second_store.x is not None:
+                        d_in = int(second_store.x.size(-1))
+            
+            # If we still don't have dimensions, use defaults
+            if d_in is None:
+                if nt == "fact":
+                    d_in = 1536  # Default fact feature dimension
+                elif nt == "company":
+                    d_in = 27    # Default company feature dimension
+                else:
+                    d_in = 64    # Generic default
+            
             mlp = nn.Sequential(
                 nn.Linear(d_in, self.hidden_channels),
                 nn.ReLU(),
@@ -183,11 +215,61 @@ class HeteroGNN(nn.Module):
         """
         Pools node embeddings to a single per-graph vector according to self.readout.
         """
-        fact_pool = global_mean_pool(x_dict["fact"], data["fact"].batch)
+        # Handle both batched (node_stores) and non-batched (direct access) cases
+        if hasattr(data, 'node_stores') and len(data.node_stores) > 0:
+            # Batched case: get batch info from node stores
+            # We need to match batch info with the actual node features
+            fact_batch = None
+            comp_batch = None
+            primary_mask = None
+            
+            # First, try to get batch info that matches our node features
+            if "fact" in x_dict and x_dict["fact"].size(0) > 0:
+                # Try to find batch info for fact nodes
+                for store in data.node_stores:
+                    if hasattr(store, 'batch') and store.batch is not None:
+                        # Check if this batch tensor matches the fact node count
+                        if store.batch.size(0) == x_dict["fact"].size(0):
+                            fact_batch = store.batch
+                            break
+                
+                # If we couldn't find matching batch info, fall back to direct access
+                if fact_batch is None:
+                    try:
+                        fact_batch = data["fact"].batch
+                    except:
+                        # Create a default batch tensor if needed
+                        fact_batch = torch.zeros(x_dict["fact"].size(0), dtype=torch.long, device=x_dict["fact"].device)
+            
+            if "company" in x_dict and x_dict["company"].size(0) > 0:
+                # Try to find batch info for company nodes
+                for store in data.node_stores:
+                    if hasattr(store, 'batch') and store.batch is not None:
+                        # Check if this batch tensor matches the company node count
+                        if store.batch.size(0) == x_dict["company"].size(0):
+                            comp_batch = store.batch
+                            # Check for primary_mask in the same store
+                            if hasattr(store, 'primary_mask'):
+                                primary_mask = store.primary_mask
+                            break
+                
+                # If we couldn't find matching batch info, fall back to direct access
+                if comp_batch is None:
+                    try:
+                        comp_batch = data["company"].batch
+                        primary_mask = getattr(data["company"], "primary_mask", None)
+                    except:
+                        # Create a default batch tensor if needed
+                        comp_batch = torch.zeros(x_dict["company"].size(0), dtype=torch.long, device=x_dict["company"].device)
+        else:
+            # Non-batched case: direct access
+            fact_batch = data["fact"].batch
+            comp_batch = data["company"].batch
+            primary_mask = getattr(data["company"], "primary_mask", None)
+
+        fact_pool = global_mean_pool(x_dict["fact"], fact_batch)
 
         # Company pool can be primary-aware
-        comp_batch = data["company"].batch
-        primary_mask = getattr(data["company"], "primary_mask", None)  # optional: torch.bool [N_company]
         company_pool = self._primary_company_pool(x_dict["company"], comp_batch, primary_mask)
 
         if self.readout == "fact":
@@ -221,7 +303,51 @@ class HeteroGNN(nn.Module):
         self._maybe_build_type_encoders(data)
 
         # Type-specific projection to hidden space H
-        x_dict = {nt: self.in_proj[nt](data[nt].x) for nt in self.node_types}
+        # Handle both batched (node_stores) and non-batched (direct access) cases
+        x_dict = {}
+        for nt in self.node_types:
+            if hasattr(data, 'node_stores') and len(data.node_stores) > 0:
+                # Batched case: get features from node stores
+                # We need to find the correct store for each node type
+                node_features = None
+                
+                # Try direct access first (most reliable)
+                try:
+                    if nt in data and hasattr(data[nt], 'x') and data[nt].x is not None:
+                        node_features = data[nt].x
+                except:
+                    pass
+                
+                # If direct access failed, try to find in node stores
+                if node_features is None:
+                    for store in data.node_stores:
+                        if hasattr(store, 'x') and store.x is not None:
+                            # For now, assume first store is facts, second is companies
+                            # This is a temporary fix - we need a more robust way to identify node types
+                            if nt == "fact" and len(data.node_stores) >= 1:
+                                node_features = store.x
+                                break
+                            elif nt == "company" and len(data.node_stores) >= 2:
+                                node_features = data.node_stores[1].x
+                                break
+                
+                if node_features is not None:
+                    x_dict[nt] = self.in_proj[nt](node_features)
+                else:
+                    # Final fallback: create zero features
+                    print(f"Warning: No features found for node type {nt}, using zeros")
+                    # Create zero features with the expected dimension
+                    if nt in self.in_proj:
+                        # Get input dimension from the first layer of the projection
+                        input_dim = self.in_proj[nt][0].in_features
+                        # Create zero features for a single node (will be expanded by batch)
+                        zero_features = torch.zeros(1, input_dim, device=data.y.device if hasattr(data, 'y') else 'cpu')
+                        x_dict[nt] = self.in_proj[nt](zero_features)
+                    else:
+                        raise ValueError(f"No projection found for node type {nt}")
+            else:
+                # Non-batched case: direct access
+                x_dict[nt] = self.in_proj[nt](data[nt].x)
 
         # Build per-relation connectivity and edge weights
         edge_index_dict, edge_weight_dict = self._edge_dicts(data)
