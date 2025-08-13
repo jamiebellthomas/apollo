@@ -387,11 +387,11 @@ def plot_multi_model_comparison(model_results, eps_car_data, days_before, days_a
     
     plt.tight_layout()
     
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Multi-model comparison plot saved to {save_path}")
-    
+
+    plt.savefig("Plots/results/multi_model_comparison.png", dpi=300, bbox_inches='tight')
+    print(f"Multi-model comparison plot saved to {save_path}")
     plt.show()
+   
 
 def get_results_directories(results_base_dir="Results"):
     """
@@ -453,6 +453,9 @@ def main():
     
     if USE_AUTO_DISCOVERY:
         results_dirs = get_results_directories(RESULTS_BASE_DIR)
+        # # get last 7 results dirs
+        # results_dirs = results_dirs[-8:]
+
     else:
         results_dirs = MANUAL_RESULTS_DIRECTORIES
 

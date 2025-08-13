@@ -1222,21 +1222,20 @@ if __name__ == "__main__":
     FEATURE_DROPOUT = 0.3
     EDGE_DROPOUT = 0.1
     FINAL_DROPOUT = 0.2
-    READOUT = "company"  # 'fact' | 'company' | 'concat' | 'gated'
+    READOUT = "fact"  # 'fact' | 'company' | 'concat' | 'gated'
     TIME_DIM = 8  # For HeteroGNN2 temporal encoding
     
     # Training configuration
-    BATCH_SIZE = 24
+    BATCH_SIZE = 8
     EPOCHS = 100
-    LEARNING_RATE = 3e-5
+    LEARNING_RATE = 1e-5
     WEIGHT_DECAY = 1e-4
     import random
-    #SEED = random.randint(0, 1000000)   
-    SEED = 157071
+    SEED = random.randint(0, 1000000)   
     GRAD_CLIP = 1.0
     LOSS_TYPE = "weighted_bce"  # "bce", "weighted_bce", "bce_label_smooth", "focal"
     EARLY_STOPPING = True
-    PATIENCE = 25
+    PATIENCE = 10
     LR_SCHEDULER = "cosine"  # "none", "step", "cosine", "plateau", "one_cycle", "exponential"
     LR_STEP_SIZE = 10
     LR_GAMMA = 0.5

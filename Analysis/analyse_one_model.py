@@ -41,10 +41,10 @@ MID_POINT_START = 15
 DAYS_AFTER = 40
 TICKERS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
 BENCHMARK_TICKER = "SPY"
-SAVE_PLOT_PATH = None
+SAVE_PLOT_PATH = "Plots/results/"
 
 # Option 2: Results folder mode (reads from test_predictions.csv)
-RESULTS_FOLDER = "Results/20250813_152725_BEST"  # Path to results folder
+RESULTS_FOLDER = "Results/_heterognn_best"  # Path to results folder
 PREDICTIONS_FILE = "test_predictions.csv"   # Name of predictions file
 
 # Option 3: EPS Surprises analysis
@@ -430,7 +430,7 @@ def plot_multi_ticker_car(car_data_list, days_before, days_after, save_path=None
     plt.tight_layout()
     
     if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path+"individual_stocks.png", dpi=300, bbox_inches='tight')
         print(f"Plot saved to {save_path}")
     
     plt.show()
@@ -517,7 +517,7 @@ def plot_combined_car_analysis(predictions_car_data, eps_car_data, days_before, 
     plt.tight_layout()
     
     if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path+"average_car_comparison.png", dpi=300, bbox_inches='tight')
         print(f"Combined plot saved to {save_path}")
     
     plt.show()

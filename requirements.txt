@@ -137,4 +137,5 @@ wrds==3.3.0
 wsproto @ file:///home/conda/feedstock_root/build_artifacts/wsproto_1733060193308/work
 xxhash==3.5.0
 yfinance==0.2.61
-zipp @ file:///home/conda/feedstock_root/build_artifacts/zipp_1749421620841/work
+zipp @ file:///home/conda/feedstock_root/build_artifacts/zipp_1749421620541/work
+statsmodels==0.14.1
