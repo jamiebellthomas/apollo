@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Multi-Model CAR Analysis Script
+Mean CAR Analysis Script
 
-This script analyzes multiple model results directories and compares their average CARs
-against the positive EPS surprises baseline.
+This script analyzes multiple model results directories and plots the mean CAR
+and standard deviation (shred) across all models.
 
 Configure the parameters below and run the script.
 """
@@ -157,102 +157,6 @@ def load_car_data_from_cache(cache_file):
         print(f"Error loading cache: {e}")
         return None
 
-def calculate_returns(prices):
-    """Calculate daily returns from price data."""
-    return prices.pct_change().dropna()
-
-def fetch_stock_data(ticker, start_date, end_date):
-    """Fetch stock data using yfinance."""
-    try:
-        stock = yf.Ticker(ticker)
-        data = stock.history(start=start_date, end=end_date)
-        return data['Close']
-    except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
-        return None
-
-def calculate_car(ticker, main_date, days_before, days_after, benchmark_ticker="SPY"):
-    """
-    Calculate Cumulative Abnormal Returns for a single ticker.
-    
-    Args:
-        ticker (str): Stock ticker symbol
-        main_date (str): Main event date in YYYY-MM-DD format
-        days_before (int): Number of days before the event
-        days_after (int): Number of days after the event
-        benchmark_ticker (str): Benchmark ticker (default: SPY for S&P 500)
-    
-    Returns:
-        dict: Dictionary containing CAR data and metadata
-    """
-    # Convert main_date to datetime (timezone-naive)
-    main_dt = pd.to_datetime(main_date).tz_localize(None)
-    
-    # Calculate date range
-    start_date = main_dt - timedelta(days=days_before + 60)  # Extra days for estimation
-    end_date = main_dt + timedelta(days=days_after + 60)
-    
-    # Fetch data
-    stock_data = fetch_stock_data(ticker, start_date, end_date)
-    benchmark_data = fetch_stock_data(benchmark_ticker, start_date, end_date)
-    
-    if stock_data is None or benchmark_data is None:
-        return None
-    
-    # Align data and make timezone-naive
-    aligned_data = pd.DataFrame({
-        'stock': stock_data,
-        'benchmark': benchmark_data
-    }).dropna()
-    
-    # Convert index to timezone-naive if it has timezone info
-    if aligned_data.index.tz is not None:
-        aligned_data.index = aligned_data.index.tz_localize(None)
-    
-    if len(aligned_data) < days_before + days_after + 10:
-        print(f"Insufficient data for {ticker}")
-        return None
-    
-    # Calculate log returns (matching DataAssembly methodology)
-    aligned_data['stock_returns'] = np.log(aligned_data['stock'] / aligned_data['stock'].shift(1))
-    aligned_data['benchmark_returns'] = np.log(aligned_data['benchmark'] / aligned_data['benchmark'].shift(1))
-    aligned_data = aligned_data.dropna()
-    
-    # Find event index
-    event_idx = None
-    for i, date in enumerate(aligned_data.index):
-        if date >= main_dt:
-            event_idx = i
-            break
-    
-    if event_idx is None or event_idx < days_before or event_idx + days_after >= len(aligned_data):
-        print(f"Event date not found or insufficient data around event for {ticker}")
-        return None
-    
-    # Extract event window
-    event_start = event_idx - days_before
-    event_end = event_idx + days_after + 1
-    event_data = aligned_data.iloc[event_start:event_end].copy()
-    
-    # Calculate abnormal returns: r_ticker - r_spy (simple difference, no market model)
-    event_data['abnormal_returns'] = event_data['stock_returns'] - event_data['benchmark_returns']
-    
-    # Calculate CAR (cumulative sum of abnormal returns)
-    event_data['car'] = event_data['abnormal_returns'].cumsum()
-    
-    # Create relative day index
-    relative_days = np.arange(-days_before, days_after + 1)
-    
-    return {
-        'ticker': ticker,
-        'relative_days': relative_days,
-        'car': event_data['car'].values,
-        'abnormal_returns': event_data['abnormal_returns'].values,
-        'alpha': 0.0,  # Not used in simple abnormal return method
-        'beta': 1.0,   # Not used in simple abnormal return method
-        'event_date': main_date
-    }
-
 def process_model_results_from_cache(results_dir, eps_car_data):
     """
     Process a single model results directory using cached EPS data.
@@ -302,9 +206,9 @@ def process_model_results_from_cache(results_dir, eps_car_data):
         print(f"No valid CAR data could be found for {model_name}")
         return None, None, None
 
-def plot_multi_model_comparison(model_results, eps_car_data, days_before, days_after, save_path=None):
+def plot_mean_car_with_shred(model_results, eps_car_data, days_before, days_after, save_path=None):
     """
-    Plot comparison of multiple models against EPS surprises baseline.
+    Plot mean CAR with standard deviation (shred) as shaded area around the line.
     
     Args:
         model_results (list): List of tuples (model_name, car_data_list, total_predictions)
@@ -318,38 +222,54 @@ def plot_multi_model_comparison(model_results, eps_car_data, days_before, days_a
     # Set up the plot
     relative_days = np.arange(-days_before, days_after + 1)
     
-    # Define colors for models
-    colors = plt.cm.Set3(np.linspace(0, 1, len(model_results) + 1))
+    # Collect mean CAR lines from each model
+    model_mean_cars = []
+    model_names = []
     
-    # Store line objects and their labels for hover functionality
-    line_objects = []
-    line_labels = []
-    
-    # Plot each model's average CAR
-    for i, (model_name, car_data_list, total_predictions) in enumerate(model_results):
+    for model_name, car_data_list, total_predictions in model_results:
         if car_data_list:
             model_cars = [data['car'] for data in car_data_list if data is not None]
             if model_cars:
-                avg_model_car = np.mean(model_cars, axis=0)
-                line, = ax.plot(relative_days, avg_model_car, 
-                        label=r'$\text{' + model_name + r' Average CAR} \quad (N = ' + str(len(model_cars)) + r')$', 
-                        color=colors[i], linewidth=3, marker='o', markersize=6)
-                line_objects.append(line)
-                line_labels.append(f"{model_name} Average CAR (N = {len(model_cars)})")
+                # Calculate mean CAR for this model
+                model_mean_car = np.mean(model_cars, axis=0)
+                model_mean_cars.append(model_mean_car)
+                model_names.append(model_name)
     
-    # Plot EPS surprises average CAR
+    if not model_mean_cars:
+        print("No valid CAR data found for any models")
+        return
+    
+    # Convert to numpy array for easier computation
+    model_mean_cars = np.array(model_mean_cars)
+    
+    # Calculate mean and standard deviation of the model-level mean CARs
+    overall_mean_car = np.mean(model_mean_cars, axis=0)
+    overall_std_car = np.std(model_mean_cars, axis=0)
+    
+    # Plot overall mean CAR with shaded area showing standard deviation
+    ax.plot(relative_days, overall_mean_car, 
+            label=r'$\text{Mean CAR Across Models} \quad (N = ' + str(len(model_mean_cars)) + r' \text{ models})$', 
+            color='blue', linewidth=3, marker='o', markersize=6)
+    
+    # Add shaded area for standard deviation (spread)
+    ax.fill_between(relative_days, 
+                    overall_mean_car - overall_std_car, 
+                    overall_mean_car + overall_std_car, 
+                    alpha=0.15, 
+                    color='blue', 
+                    label=r'$\text{±1 Standard Deviation (Spread)}$')
+    
+    # Add EPS surprises baseline if available
     if eps_car_data:
         eps_cars = [data['car'] for data in eps_car_data if data is not None]
         if eps_cars:
             avg_eps_car = np.mean(eps_cars, axis=0)
-            line, = ax.plot(relative_days, avg_eps_car, 
+            ax.plot(relative_days, avg_eps_car, 
                     label=r'$\text{Positive EPS Surprises Average CAR} \quad (N = ' + str(len(eps_cars)) + r')$', 
-                    color='black', linewidth=4, marker='s', markersize=8, linestyle='--')
-            line_objects.append(line)
-            line_labels.append(f"Positive EPS Surprises Average CAR (N = {len(eps_cars)})")
+                    color='red', linewidth=3, marker='s', markersize=6, linestyle='--')
     
     # Add vertical line at event date
-    ax.axvline(x=0, color='red', linestyle='--', alpha=0.7, label=r'$\text{Event Date} \quad (t = 0)$')
+    ax.axvline(x=0, color='black', linestyle='--', alpha=0.7, label=r'$\text{Event Date} \quad (t = 0)$')
     
     # Add horizontal line at zero
     ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
@@ -357,10 +277,7 @@ def plot_multi_model_comparison(model_results, eps_car_data, days_before, days_a
     # Customize the plot
     ax.set_xlabel(r'Days Relative to Event ($t$)', fontsize=12)
     ax.set_ylabel(r'Cumulative Abnormal Returns (CAR)', fontsize=12)
-    
-    # Create informative title
-    title = r"$\text{Multi-Model CAR Comparison vs Positive EPS Surprises Baseline}$"
-    ax.set_title(title, fontsize=14)
+    ax.set_title(r"$\text{Mean CAR with Standard Deviation Spread vs Positive EPS Surprises Baseline}$", fontsize=14)
     ax.legend(fontsize=10, loc='best')
     ax.grid(True, alpha=0.3)
     
@@ -368,30 +285,16 @@ def plot_multi_model_comparison(model_results, eps_car_data, days_before, days_a
     ax.axvspan(0, MID_POINT_START, alpha=0.1, color='blue', label=r'$\text{Early Post-Event Period} \quad (0 \leq t < 15)$')
     ax.axvspan(MID_POINT_START, days_after, alpha=0.1, color='green', label=r'$\text{Late Post-Event Period} \quad (15 \leq t \leq 40)$')
     
-    # Add hover functionality
-    def on_hover(event):
-        if event.inaxes == ax:
-            # Check if mouse is over any line
-            for i, line in enumerate(line_objects):
-                if line.contains(event)[0]:
-                    # Show tooltip with label
-                    ax.set_title(f"{title}\n\nHovering: {line_labels[i]}", fontsize=14)
-                    fig.canvas.draw_idle()
-                    return
-            # If not hovering over any line, restore original title
-            ax.set_title(title, fontsize=14)
-            fig.canvas.draw_idle()
-    
-    # Connect the hover event
-    fig.canvas.mpl_connect('motion_notify_event', on_hover)
-    
     plt.tight_layout()
     
-
-    plt.savefig("Plots/results/multi_model_comparison.png", dpi=300, bbox_inches='tight')
-    print(f"Multi-model comparison plot saved to {save_path}")
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Mean CAR plot saved to {save_path}")
+    else:
+        plt.savefig("Plots/results/mean_car_analysis.png", dpi=300, bbox_inches='tight')
+        print("Mean CAR plot saved to Plots/results/mean_car_analysis.png")
+    
     plt.show()
-   
 
 def get_results_directories(results_base_dir="Results"):
     """
@@ -429,10 +332,10 @@ def get_results_directories(results_base_dir="Results"):
         return []
 
 def main():
-    """Main function to run the multi-model CAR analysis."""
+    """Main function to run the mean CAR analysis."""
     
     print("="*80)
-    print("MULTI-MODEL CAR ANALYSIS")
+    print("MEAN CAR ANALYSIS")
     print("="*80)
     
     # Process each model's results
@@ -453,9 +356,7 @@ def main():
     
     if USE_AUTO_DISCOVERY:
         results_dirs = get_results_directories(RESULTS_BASE_DIR)
-        # # get last 7 results dirs
-        results_dirs = results_dirs[-10:]
-
+        results_dirs = results_dirs[1:]
     else:
         results_dirs = MANUAL_RESULTS_DIRECTORIES
 
@@ -471,32 +372,47 @@ def main():
         print("No valid model results found. Exiting.")
         return
     
-    # Plot multi-model comparison
+    # Plot mean CAR with shred
     print(f"\n" + "="*80)
-    print("GENERATING MULTI-MODEL COMPARISON PLOT")
+    print("GENERATING MEAN CAR ANALYSIS PLOT")
     print("="*80)
     
-    plot_multi_model_comparison(model_results, eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
+    plot_mean_car_with_shred(model_results, eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
     
     # Print summary statistics
     print(f"\n" + "="*80)
     print("SUMMARY STATISTICS")
     print("="*80)
     
+    # Collect mean CAR lines from each model
+    model_mean_cars = []
     for model_name, car_data_list, total_predictions in model_results:
         if car_data_list:
             model_cars = [data['car'] for data in car_data_list if data is not None]
             if model_cars:
-                avg_model_car = np.mean(model_cars, axis=0)
-                pre_event_car = avg_model_car[DAYS_BEFORE]  # CAR at day 0
-                post_event_car = avg_model_car[-1]  # Final CAR
-                car_change = post_event_car - pre_event_car
-                
-                print(f"\n{model_name}:")
-                print(f"  Events: {len(model_cars)}")
-                print(f"  Pre-Event CAR (Day 0): {pre_event_car:.6f}")
-                print(f"  Post-Event CAR (Final): {post_event_car:.6f}")
-                print(f"  Total CAR Change: {car_change:.6f}")
+                # Calculate mean CAR for this model
+                model_mean_car = np.mean(model_cars, axis=0)
+                model_mean_cars.append(model_mean_car)
+    
+    if model_mean_cars:
+        model_mean_cars = np.array(model_mean_cars)
+        overall_mean_car = np.mean(model_mean_cars, axis=0)
+        overall_std_car = np.std(model_mean_cars, axis=0)
+        
+        pre_event_car = overall_mean_car[DAYS_BEFORE]  # CAR at day 0
+        post_event_car = overall_mean_car[-1]  # Final CAR
+        car_change = post_event_car - pre_event_car
+        
+        pre_event_std = overall_std_car[DAYS_BEFORE]  # Std at day 0
+        post_event_std = overall_std_car[-1]  # Final std
+        
+        print(f"\nAggregated Statistics Across All Models:")
+        print(f"  Number of Models: {len(model_mean_cars)}")
+        print(f"  Mean Pre-Event CAR (Day 0): {pre_event_car:.6f}")
+        print(f"  Mean Post-Event CAR (Final): {post_event_car:.6f}")
+        print(f"  Mean Total CAR Change: {car_change:.6f}")
+        print(f"  Mean Pre-Event Std (Day 0): {pre_event_std:.6f}")
+        print(f"  Mean Post-Event Std (Final): {post_event_std:.6f}")
 
 if __name__ == "__main__":
     main() 

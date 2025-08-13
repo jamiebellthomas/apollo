@@ -1209,7 +1209,7 @@ if __name__ == "__main__":
     # ============================================================
     
     # Choose which model to run
-    MODEL_TYPE = "heterognn"  # "heterognn" or "heterognn2"
+    MODEL_TYPE = "heterognn2"  # "heterognn" or "heterognn2"
     
     # Data configuration
     N_FACTS = 35  # Minimum number of facts per subgraph
@@ -1222,20 +1222,21 @@ if __name__ == "__main__":
     FEATURE_DROPOUT = 0.3
     EDGE_DROPOUT = 0.1
     FINAL_DROPOUT = 0.2
-    READOUT = "fact"  # 'fact' | 'company' | 'concat' | 'gated'
-    TIME_DIM = 8  # For HeteroGNN2 temporal encoding
+    READOUT = "company"  # 'fact' | 'company' | 'concat' | 'gated'
+    TIME_DIM = 16  # For HeteroGNN2 temporal encoding
     
     # Training configuration
-    BATCH_SIZE = 8
+    BATCH_SIZE = 32
     EPOCHS = 100
-    LEARNING_RATE = 1e-5
+    LEARNING_RATE = 3e-5
     WEIGHT_DECAY = 1e-4
     import random
     SEED = random.randint(0, 1000000)   
+    # SEED = 157071
     GRAD_CLIP = 1.0
     LOSS_TYPE = "weighted_bce"  # "bce", "weighted_bce", "bce_label_smooth", "focal"
     EARLY_STOPPING = True
-    PATIENCE = 10
+    PATIENCE = 20
     LR_SCHEDULER = "cosine"  # "none", "step", "cosine", "plateau", "one_cycle", "exponential"
     LR_STEP_SIZE = 10
     LR_GAMMA = 0.5
