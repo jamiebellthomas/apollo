@@ -1200,6 +1200,9 @@ def run_training(
 # ----------------------------
 # Script entrypoint
 # ----------------------------
+
+
+
 if __name__ == "__main__":
     # ============================================================
     # HYPERPARAMETERS - Edit these to change model behavior
@@ -1223,11 +1226,13 @@ if __name__ == "__main__":
     TIME_DIM = 8  # For HeteroGNN2 temporal encoding
     
     # Training configuration
-    BATCH_SIZE = 8
+    BATCH_SIZE = 24
     EPOCHS = 100
-    LEARNING_RATE = 1e-5
+    LEARNING_RATE = 3e-5
     WEIGHT_DECAY = 1e-4
-    SEED = 42
+    import random
+    #SEED = random.randint(0, 1000000)   
+    SEED = 157071
     GRAD_CLIP = 1.0
     LOSS_TYPE = "weighted_bce"  # "bce", "weighted_bce", "bce_label_smooth", "focal"
     EARLY_STOPPING = True
