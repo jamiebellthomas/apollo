@@ -52,12 +52,25 @@ def run_multiple_experiments(
         start_time = time.time()
         
         try:
+            # Configuration variables - all in one place
+            MODEL_TYPE = "heterognn3"  # Options: "heterognn", "heterognn2", "heterognn3"
+            TIME_DIM = 16  # Only used for HeteroGNN2
+            ENABLE_RUN_SCRAPING = False  # Set to True to enable run scraping
+            MIN_EPOCHS_AFTER_PATIENCE = 7
+            BATCH_SIZE = 32
+            EPOCHS = 100
+            LEARNING_RATE = 1e-5
+            HIDDEN_CHANNELS = 128
+            NUM_LAYERS = 4
+            READOUT = "company"
+            LOSS_TYPE = "weighted_bce"
+            
             # Run the training with the current seed
             # Using the same hyperparameters as in run.py
             model, test_metrics, history = run_training(
                 # Model configuration
-                model_type="heterognn",  # You can change this
-                time_dim=8,
+                model_type=MODEL_TYPE,  # Use the configuration variable
+                time_dim=TIME_DIM,  # Use the configuration variable
                 
                 # Data configuration
                 n_facts=35,
@@ -65,22 +78,22 @@ def run_multiple_experiments(
                 use_cache=True,
                 
                 # Model architecture
-                hidden_channels=128,
-                num_layers=4,
+                hidden_channels=HIDDEN_CHANNELS,
+                num_layers=NUM_LAYERS,
                 feature_dropout=0.3,
                 edge_dropout=0.1,
                 final_dropout=0.2,
-                readout="company",
+                readout=READOUT,
                 
                 # Training configuration
-                batch_size=24,
-                epochs=100,
-                lr=1e-5,
+                batch_size=BATCH_SIZE,
+                epochs=EPOCHS,
+                lr=LEARNING_RATE,
                 weight_decay=1e-4,
                 seed=seed,  # This is the key parameter that changes
                 grad_clip=1.0,
                 ckpt_path=f"best_model_run_{run_num}.pt",
-                loss_type="weighted_bce",
+                loss_type=LOSS_TYPE,
                 early_stopping=True,
                 patience=20,
                 lr_scheduler="cosine",
@@ -89,9 +102,13 @@ def run_multiple_experiments(
                 time_aware_split=False,
                 optimizer_type="adam",
                 
+                # Run scraping configuration
+                enable_run_scraping=ENABLE_RUN_SCRAPING,  # Use the configuration variable
+                min_epochs_after_patience=MIN_EPOCHS_AFTER_PATIENCE,  # Use the configuration variable
+                
                 # Data splitting
-                train_ratio=0.7,
-                val_ratio=0.15,
+                train_ratio=0.75,
+                val_ratio=0.1,
             )
             
             end_time = time.time()
@@ -196,14 +213,18 @@ def run_multiple_experiments(
 
 if __name__ == "__main__":
     # Configuration - you can modify these parameters
-    NUM_RUNS = 20  # Number of experiments to run
+    NUM_RUNS = 2  # Number of experiments to run
     SEED_RANGE = (0, 1000000)  # Range for random seed generation
     
     print("Multiple Training Runs Script")
     print("=" * 40)
     print(f"Number of runs: {NUM_RUNS}")
     print(f"Seed range: {SEED_RANGE}")
-    print("Note: Results are automatically saved to the Results directory by run.py")
+    print("\nModel types:")
+    print("  - heterognn: Original model with temporal encoding (sentiment + decay)")
+    print("  - heterognn2: Temporal-aware model with learned temporal encoding")
+    print("  - heterognn3: No temporal encoding (sentiment only)")
+    print("\nNote: Results are automatically saved to the Results directory by run.py")
      
     # Run the experiments
     results = run_multiple_experiments(

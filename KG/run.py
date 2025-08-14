@@ -1,6 +1,24 @@
 # train_hetero_gnn.py
 from __future__ import annotations
 
+"""
+HeteroGNN Training Script with Run Scraping Feature
+
+This script includes a feature to automatically scrape runs that end too early after the patience threshold.
+If training ends less than MIN_EPOCHS_AFTER_PATIENCE epochs after the patience threshold would be hit,
+the entire experiment directory and all logs are removed.
+
+Example:
+- If patience=20 and min_epochs_before_stopping=10, patience threshold is at epoch 30
+- If MIN_EPOCHS_AFTER_PATIENCE=10, training should continue until at least epoch 40
+- If training ends at epoch 35, the run will be scraped
+- If training ends at epoch 45, the run will be kept
+
+Configuration:
+- ENABLE_RUN_SCRAPING: Set to True to enable the feature, False to disable
+- MIN_EPOCHS_AFTER_PATIENCE: Minimum epochs that should occur after patience threshold
+"""
+
 from typing import List, Tuple, Dict
 import math
 import os
@@ -206,6 +224,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="transform
 from SubGraphDataLoader import SubGraphDataLoader
 from HeteroGNN import HeteroGNN  # ensure this matches your file/module name
 from HeteroGNN2 import HeteroGNN2  # add HeteroGNN2 as an option
+from HeteroGNN3 import HeteroGNN3  # add HeteroGNN3 as an option
 
 # Import config
 import sys
@@ -325,7 +344,7 @@ def split_list(dataset: List[HeteroData], train_ratio=0.7, val_ratio=0.15, seed=
     Prints class distribution for each split.
     Returns (train_set, val_set, test_set, train_indices, val_indices, test_indices)
     """
-    g = torch.Generator().manual_seed(seed)
+    g = torch.Generator().manual_seed(42)
     perm = torch.randperm(len(dataset), generator=g).tolist()
     n = len(dataset)
     n_train = int(n * train_ratio)
@@ -753,6 +772,9 @@ def run_training(
     lr_gamma: float = 0.5,  # For step scheduler
     time_aware_split: bool = False,  # Use temporal splitting instead of random
     optimizer_type: str = "adam", # "adam", "adamw", "sgd", "rmsprop"
+    # --- run scraping ---
+    enable_run_scraping: bool = True,  # Enable/disable run scraping feature
+    min_epochs_after_patience: int = 10,  # Minimum epochs that should occur after patience threshold
 ) -> Tuple[nn.Module, Dict[str, float], Dict[str, list]]:
     
     # Initialize comprehensive logger
@@ -786,7 +808,9 @@ def run_training(
         lr_step_size=lr_step_size,
         lr_gamma=lr_gamma,
         time_aware_split=time_aware_split,
-        optimizer_type=optimizer_type
+        optimizer_type=optimizer_type,
+        enable_run_scraping=enable_run_scraping,
+        min_epochs_after_patience=min_epochs_after_patience
     )
     
     set_seed(seed)
@@ -985,8 +1009,19 @@ def run_training(
             time_dim=time_dim,
         )
         print(f"[model] Using HeteroGNN2 with {hidden_channels} hidden channels, {num_layers} layers, time_dim={time_dim}")
+    elif model_type.lower() == "heterognn3":
+        model = HeteroGNN3(
+            metadata=metadata,
+            hidden_channels=hidden_channels,
+            num_layers=num_layers,
+            feature_dropout=feature_dropout,
+            edge_dropout=edge_dropout,
+            final_dropout=final_dropout,
+            readout=readout,
+        )
+        print(f"[model] Using HeteroGNN3 with {hidden_channels} hidden channels, {num_layers} layers (NO TEMPORAL ENCODING)")
     else:
-        raise ValueError(f"Unknown model_type: {model_type}. Use 'heterognn' or 'heterognn2'")
+        raise ValueError(f"Unknown model_type: {model_type}. Use 'heterognn', 'heterognn2', or 'heterognn3'")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[device] Using {device}")
@@ -1144,6 +1179,64 @@ def run_training(
             print(f"Early stopping triggered after {epoch} epochs (no improvement for {patience} epochs)")
             break
 
+    # Check if training ended too early after patience threshold
+    def should_scrape_run(final_epoch: int, patience: int, min_epochs_after_patience: int = 10) -> bool:
+        """
+        Check if training ended too early after the patience threshold.
+        If training ends less than min_epochs_after_patience epochs after patience threshold,
+        the run should be scraped.
+        
+        Args:
+            final_epoch: The epoch where training ended
+            patience: The patience value used for early stopping
+            min_epochs_after_patience: Minimum epochs that should occur after patience threshold
+            
+        Returns:
+            bool: True if run should be scraped, False otherwise
+        """
+        # Calculate when patience threshold would be hit
+        patience_threshold_epoch = patience + min_epochs_before_stopping
+        
+        # Check if training ended too early after patience threshold
+        if final_epoch <= (patience_threshold_epoch + min_epochs_after_patience):
+            return True
+        return False
+    
+    def scrape_run(logger):
+        """
+        Scrape the run by removing the experiment directory and its contents.
+        """
+        import shutil
+        experiment_dir = Path(logger.get_experiment_dir())
+        if experiment_dir.exists():
+            try:
+                shutil.rmtree(experiment_dir)
+                print(f"[SCRAPE] Successfully removed experiment directory: {experiment_dir}")
+                return True
+            except Exception as e:
+                print(f"[SCRAPE] Error removing experiment directory: {e}")
+                return False
+        else:
+            print(f"[SCRAPE] Experiment directory not found: {experiment_dir}")
+            return False
+    
+    # Check if run should be scraped
+    final_epoch = epoch
+    if enable_run_scraping and should_scrape_run(final_epoch, patience, min_epochs_after_patience):
+        print(f"[SCRAPE] Training ended too early! Final epoch: {final_epoch}")
+        print(f"[SCRAPE] Patience threshold would be at epoch: {patience + min_epochs_before_stopping}")
+        print(f"[SCRAPE] Training should have continued for at least {patience + min_epochs_before_stopping + min_epochs_after_patience} epochs")
+        print(f"[SCRAPE] Scraping run and removing all logs...")
+        
+        # Scrape the run
+        scrape_success = scrape_run(logger)
+        if scrape_success:
+            print(f"[SCRAPE] Run successfully scraped. Exiting...")
+            # Return None values to indicate the run was scraped
+            return None, None, None
+        else:
+            print(f"[SCRAPE] Failed to scrape run. Continuing with results...")
+
     if best_state is not None:
         model.load_state_dict(best_state)
         if ckpt_path:
@@ -1217,7 +1310,7 @@ if __name__ == "__main__":
     # ============================================================
     
     # Choose which model to run
-    MODEL_TYPE = "heterognn"  # "heterognn" or "heterognn2"
+    MODEL_TYPE = "heterognn3"  # "heterognn", "heterognn2", or "heterognn3"
     
     # Data configuration
     N_FACTS = 35  # Minimum number of facts per subgraph
@@ -1236,7 +1329,7 @@ if __name__ == "__main__":
     # Training configuration
     BATCH_SIZE = 32
     EPOCHS = 100
-    LEARNING_RATE = 3e-5
+    LEARNING_RATE = 1e-5
     WEIGHT_DECAY = 1e-4
     import random
     SEED = random.randint(0, 1000000)   
@@ -1251,6 +1344,10 @@ if __name__ == "__main__":
     TIME_AWARE_SPLIT = False
     OPTIMIZER_TYPE = "adam"  # "adam", "adamw", "sgd", "rmsprop"
     
+    # Run scraping configuration
+    ENABLE_RUN_SCRAPING = False  # Enable/disable the run scraping feature
+    MIN_EPOCHS_AFTER_PATIENCE = 10  # Minimum epochs that should occur after patience threshold
+    
     # Data splitting
     TRAIN_RATIO = 0.75
     VAL_RATIO = 0.1
@@ -1262,6 +1359,8 @@ if __name__ == "__main__":
     print("=" * 60)
     if MODEL_TYPE == "heterognn2":
         print("RUNNING HETEROGNN2 (Temporal-Aware Model)")
+    elif MODEL_TYPE == "heterognn3":
+        print("RUNNING HETEROGNN3 (No Temporal Encoding)")
     else:
         print("RUNNING HETEROGNN (Original Model)")
     print("=" * 60)
@@ -1301,12 +1400,33 @@ if __name__ == "__main__":
         time_aware_split=TIME_AWARE_SPLIT,
         optimizer_type=OPTIMIZER_TYPE,
         
+        # Run scraping configuration
+        enable_run_scraping=ENABLE_RUN_SCRAPING,
+        min_epochs_after_patience=MIN_EPOCHS_AFTER_PATIENCE,
+        
         # Data splitting
         train_ratio=TRAIN_RATIO,
         val_ratio=VAL_RATIO,
     )
 
-    model_name = "HeteroGNN2" if MODEL_TYPE == "heterognn2" else "HeteroGNN"
+    # Check if run was scraped
+    if model is None or test_metrics is None or history is None:
+        print("\n" + "=" * 60)
+        print("RUN WAS SCRAPED - Training ended too early after patience threshold")
+        print("=" * 60)
+        print("The experiment directory and all logs have been removed.")
+        print("This run did not meet the minimum training duration requirements.")
+        print("=" * 60)
+        sys.exit(0)  # Use sys.exit() for more reliable exit
+
+    # Additional safety check - if any of the returned values are None, exit
+    if not all([model, test_metrics, history]):
+        print("\n" + "=" * 60)
+        print("ERROR: Incomplete results returned from training")
+        print("=" * 60)
+        sys.exit(1)
+
+    model_name = "HeteroGNN2" if MODEL_TYPE == "heterognn2" else "HeteroGNN" if MODEL_TYPE == "heterognn" else "HeteroGNN3"
     print(f"\n{model_name} Results:")
     print(f"Test Accuracy: {test_metrics['acc']:.4f}")
     print(f"Test AUC: {test_metrics.get('auc', float('nan')):.4f}")
@@ -1316,7 +1436,12 @@ if __name__ == "__main__":
         print(f"Test F1: {test_metrics['f1']:.4f}")
 
     # Example of how to run the other model for comparison
-    other_model = "heterognn" if MODEL_TYPE == "heterognn2" else "heterognn2"
+    if MODEL_TYPE == "heterognn":
+        other_model = "heterognn2"
+    elif MODEL_TYPE == "heterognn2":
+        other_model = "heterognn3"
+    else:
+        other_model = "heterognn"
     print(f"\n" + "=" * 60)
     print(f"EXAMPLE: To run {other_model.upper()}, change MODEL_TYPE = '{other_model}' at the top of the script")
     print("=" * 60)
