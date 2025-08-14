@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from collections import defaultdict
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix
 import json
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -143,6 +143,9 @@ def calculate_performance_metrics(aggregated_df):
     recall = recall_score(y_true, y_pred, zero_division=0)
     f1 = f1_score(y_true, y_pred, zero_division=0)
     
+    # Calculate confusion matrix
+    cm = confusion_matrix(y_true, y_pred)
+    
     # Get detailed classification report
     class_report = classification_report(y_true, y_pred, output_dict=True)
     
@@ -151,6 +154,7 @@ def calculate_performance_metrics(aggregated_df):
         'precision': precision,
         'recall': recall,
         'f1_score': f1,
+        'confusion_matrix': cm,
         'classification_report': class_report
     }
 
@@ -180,6 +184,21 @@ def save_results(aggregated_df, metrics, output_dir, arch_name):
         f.write(f"Recall:    {metrics['recall']:.4f}\n")
         f.write(f"F1-Score:  {metrics['f1_score']:.4f}\n\n")
         
+        # Add confusion matrix
+        f.write("Confusion Matrix:\n")
+        f.write("-" * 20 + "\n")
+        cm = metrics['confusion_matrix']
+        f.write("                Predicted\n")
+        f.write("                0    1\n")
+        f.write("Actual 0    {:4d} {:4d}\n".format(cm[0, 0], cm[0, 1]))
+        f.write("       1    {:4d} {:4d}\n".format(cm[1, 0], cm[1, 1]))
+        f.write("\n")
+        f.write("Confusion Matrix Details:\n")
+        f.write(f"True Negatives (TN): {cm[0, 0]} - Correctly predicted negative\n")
+        f.write(f"False Positives (FP): {cm[0, 1]} - Incorrectly predicted positive\n")
+        f.write(f"False Negatives (FN): {cm[1, 0]} - Incorrectly predicted negative\n")
+        f.write(f"True Positives (TP): {cm[1, 1]} - Correctly predicted positive\n\n")
+        
         f.write("Detailed Classification Report:\n")
         f.write("-" * 30 + "\n")
         for label, scores in metrics['classification_report'].items():
@@ -197,7 +216,10 @@ def save_results(aggregated_df, metrics, output_dir, arch_name):
     # Also save metrics as JSON for programmatic access
     json_file = output_path / "performance.json"
     with open(json_file, 'w') as f:
-        json.dump(metrics, f, indent=2)
+        # Convert numpy array to list for JSON serialization
+        metrics_for_json = metrics.copy()
+        metrics_for_json['confusion_matrix'] = metrics['confusion_matrix'].tolist()
+        json.dump(metrics_for_json, f, indent=2)
     print(f"Saved performance metrics (JSON) to {json_file}")
 
 def calculate_car_for_ticker(ticker, event_date, days_before=20, days_after=40):
