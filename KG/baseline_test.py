@@ -498,7 +498,13 @@ def run_baseline_test(
         print("[baseline] Processing from scratch...")
         subgraphs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), config.SUBGRAPHS_JSONL)
         loader = SubGraphDataLoader(min_facts=n_facts, limit=limit, jsonl_path=subgraphs_path)
-        graphs, raw_sg = encode_all_to_heterodata(loader)
+        
+        # Encode to HeteroData - now returns separate training and testing data
+        training_graphs, testing_graphs, training_raw_sg, testing_raw_sg = encode_all_to_heterodata(loader)
+        
+        # Combine for baseline testing purposes
+        graphs = training_graphs + testing_graphs
+        raw_sg = training_raw_sg + testing_raw_sg
     
     # Attach labels
     attach_y_and_meta(graphs, raw_sg)

@@ -141,20 +141,25 @@ def cache_dataset(n_facts=25, limit=None, cache_dir=None):
     subgraphs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), config.SUBGRAPHS_JSONL)
     loader = SubGraphDataLoader(min_facts=n_facts, limit=limit, jsonl_path=subgraphs_path)
     
-    # Encode to HeteroData
-    graphs, raw_sg = encode_all_to_heterodata(loader)
+    # Encode to HeteroData - now returns separate training and testing data
+    training_graphs, testing_graphs, training_raw_sg, testing_raw_sg = encode_all_to_heterodata(loader)
     
     # Attach labels and metadata
-    attach_y_and_meta(graphs, raw_sg)
+    attach_y_and_meta(training_graphs, training_raw_sg)
+    attach_y_and_meta(testing_graphs, testing_raw_sg)
+    
+    # Combine for backward compatibility with existing cache format
+    all_graphs = training_graphs + testing_graphs
+    all_raw_sg = training_raw_sg + testing_raw_sg
     
     # Prepare cache data
     cache_data = {
-        'graphs': graphs,
-        'raw_sg': raw_sg,
+        'graphs': all_graphs,
+        'raw_sg': all_raw_sg,
         'n_facts': n_facts,
         'limit': limit,
         'timestamp': time.time(),
-        'graph_count': len(graphs)
+        'graph_count': len(all_graphs)
     }
     
     # Atomically write cache data
@@ -164,7 +169,7 @@ def cache_dataset(n_facts=25, limit=None, cache_dir=None):
     elapsed_time = time.time() - start_time
     print(f"✅ Dataset cached successfully!")
     print(f"   Cache file: {cache_path}")
-    print(f"   Graphs: {len(graphs)}")
+    print(f"   Graphs: {len(all_graphs)}")
     print(f"   Time taken: {elapsed_time:.2f} seconds")
     
     return cache_path

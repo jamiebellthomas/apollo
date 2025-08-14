@@ -274,25 +274,31 @@ def attach_y_and_meta(dataset: List[HeteroData], subgraphs) -> None:
         # Keep primary ticker as a simple python string attribute for grouping
         g.meta_primary_ticker = getattr(sg, "primary_ticker", None)
 
-def encode_all_to_heterodata(loader: SubGraphDataLoader, batch_size: int = 20) -> tuple[list[HeteroData], list]:
+def encode_all_to_heterodata(loader: SubGraphDataLoader, batch_size: int = 20) -> tuple[list[HeteroData], list[HeteroData], list, list]:
     """
-    Encodes every SubGraph to HeteroData and returns (graphs, original_subgraphs).
+    Encodes training and testing SubGraphs to HeteroData separately and returns 
+    (training_graphs, testing_graphs, training_subgraphs, testing_subgraphs).
     Uses batch processing to avoid rate limiting.
     """
-    graphs: List[HeteroData] = []
-    total_subgraphs = len(loader.items)
-    
-    print(f"[encode] Processing {total_subgraphs} subgraphs in batches of {batch_size}")
+    training_graphs: List[HeteroData] = []
+    testing_graphs: List[HeteroData] = []
     
     # Get cached transformer once
     transformer = get_cached_transformer()
     
-    for i in range(0, total_subgraphs, batch_size):
-        batch_end = min(i + batch_size, total_subgraphs)
-        batch_items = loader.items[i:batch_end]
+    # Process training items
+    training_items = loader.get_training_items()
+    training_subgraphs = training_items.copy()  # Keep original subgraphs
+    total_training = len(training_items)
+    
+    print(f"[encode] Processing {total_training} training subgraphs in batches of {batch_size}")
+    
+    for i in range(0, total_training, batch_size):
+        batch_end = min(i + batch_size, total_training)
+        batch_items = training_items[i:batch_end]
         
-        print(f"[encode] Processing batch {i//batch_size + 1}/{(total_subgraphs + batch_size - 1)//batch_size} "
-              f"(subgraphs {i+1}-{batch_end}/{total_subgraphs})")
+        print(f"[encode] Processing training batch {i//batch_size + 1}/{(total_training + batch_size - 1)//batch_size} "
+              f"(subgraphs {i+1}-{batch_end}/{total_training})")
         
         batch_success = 0
         for j, sg in enumerate(batch_items):
@@ -303,11 +309,11 @@ def encode_all_to_heterodata(loader: SubGraphDataLoader, batch_size: int = 20) -
                 try:
                     # Progress indicator within batch
                     if j % 5 == 0:
-                        print(f"  [encode] Processed {j+1}/{len(batch_items)} in current batch")
+                        print(f"  [encode] Processed {j+1}/{len(batch_items)} in current training batch")
                     
                     # Encode SubGraph to HeteroData using cached transformer
                     data = sg.to_pyg_data(text_encoder=transformer)
-                    graphs.append(data)
+                    training_graphs.append(data)
                     batch_success += 1
                     
                     # Small delay to avoid overwhelming the system
@@ -323,20 +329,79 @@ def encode_all_to_heterodata(loader: SubGraphDataLoader, batch_size: int = 20) -
                             retry_delay *= 2  # Exponential backoff
                             continue
                         else:
-                            print(f"[encode] Rate limit exceeded after {max_retries} attempts, skipping subgraph {i+j+1}")
+                            print(f"[encode] Rate limit exceeded after {max_retries} attempts, skipping training subgraph {i+j+1}")
                             break
                     else:
-                        print(f"[encode] Error processing subgraph {i+j+1} ({sg.primary_ticker}): {e}")
+                        print(f"[encode] Error processing training subgraph {i+j+1} ({sg.primary_ticker}): {e}")
                         break
         
         # Longer delay between batches to avoid rate limiting
-        if batch_end < total_subgraphs:
+        if batch_end < total_training:
             delay = 3.0 + (batch_success / len(batch_items)) * 2.0  # 3-5 seconds based on success rate
-            print(f"[encode] Batch completed ({batch_success}/{len(batch_items)} successful). Waiting {delay:.1f}s before next batch...")
+            print(f"[encode] Training batch completed ({batch_success}/{len(batch_items)} successful). Waiting {delay:.1f}s before next batch...")
             time.sleep(delay)
     
-    print(f"[encode] Successfully processed {len(graphs)}/{total_subgraphs} subgraphs")
-    return graphs, loader.items
+    print(f"[encode] Successfully processed {len(training_graphs)}/{total_training} training subgraphs")
+    
+    # Process testing items
+    testing_items = loader.get_testing_items()
+    testing_subgraphs = testing_items.copy()  # Keep original subgraphs
+    total_testing = len(testing_items)
+    
+    print(f"[encode] Processing {total_testing} testing subgraphs in batches of {batch_size}")
+    
+    for i in range(0, total_testing, batch_size):
+        batch_end = min(i + batch_size, total_testing)
+        batch_items = testing_items[i:batch_end]
+        
+        print(f"[encode] Processing testing batch {i//batch_size + 1}/{(total_testing + batch_size - 1)//batch_size} "
+              f"(subgraphs {i+1}-{batch_end}/{total_testing})")
+        
+        batch_success = 0
+        for j, sg in enumerate(batch_items):
+            max_retries = 3
+            retry_delay = 2.0  # Start with 2 seconds
+            
+            for attempt in range(max_retries):
+                try:
+                    # Progress indicator within batch
+                    if j % 5 == 0:
+                        print(f"  [encode] Processed {j+1}/{len(batch_items)} in current testing batch")
+                    
+                    # Encode SubGraph to HeteroData using cached transformer
+                    data = sg.to_pyg_data(text_encoder=transformer)
+                    testing_graphs.append(data)
+                    batch_success += 1
+                    
+                    # Small delay to avoid overwhelming the system
+                    if j % 3 == 0:  # Every 3 subgraphs
+                        time.sleep(0.05)  # 50ms delay
+                    break  # Success, exit retry loop
+                    
+                except Exception as e:
+                    if "429" in str(e) or "rate limit" in str(e).lower():
+                        if attempt < max_retries - 1:
+                            print(f"[encode] Rate limit hit, retrying in {retry_delay:.1f}s... (attempt {attempt + 1}/{max_retries})")
+                            time.sleep(retry_delay)
+                            retry_delay *= 2  # Exponential backoff
+                            continue
+                        else:
+                            print(f"[encode] Rate limit exceeded after {max_retries} attempts, skipping testing subgraph {i+j+1}")
+                            break
+                    else:
+                        print(f"[encode] Error processing testing subgraph {i+j+1} ({sg.primary_ticker}): {e}")
+                        break
+        
+        # Longer delay between batches to avoid rate limiting
+        if batch_end < total_testing:
+            delay = 3.0 + (batch_success / len(batch_items)) * 2.0  # 3-5 seconds based on success rate
+            print(f"[encode] Testing batch completed ({batch_success}/{len(batch_items)} successful). Waiting {delay:.1f}s before next batch...")
+            time.sleep(delay)
+    
+    print(f"[encode] Successfully processed {len(testing_graphs)}/{total_testing} testing subgraphs")
+    print(f"[encode] Total: {len(training_graphs)} training + {len(testing_graphs)} testing = {len(training_graphs) + len(testing_graphs)} total graphs")
+    
+    return training_graphs, testing_graphs, training_subgraphs, testing_subgraphs
 
 def split_list(dataset: List[HeteroData], train_ratio=0.7, val_ratio=0.15, seed=42):
     """
@@ -770,7 +835,7 @@ def run_training(
     lr_scheduler: str = "none",  # 'none', 'step', 'cosine', 'plateau'
     lr_step_size: int = 10,  # For step scheduler
     lr_gamma: float = 0.5,  # For step scheduler
-    time_aware_split: bool = False,  # Use temporal splitting instead of random
+    time_aware_split: bool = False,  # DEPRECATED: Fixed data splits are now used instead
     optimizer_type: str = "adam", # "adam", "adamw", "sgd", "rmsprop"
     # --- run scraping ---
     enable_run_scraping: bool = True,  # Enable/disable run scraping feature
@@ -819,22 +884,71 @@ def run_training(
     print(f"[data] Loading subgraphs with min_facts={n_facts}, limit={limit}")
     
     # Try to load from cache first
-    graphs = None
-    raw_sg = None
+    training_graphs = None
+    testing_graphs = None
+    training_raw_sg = None
+    testing_raw_sg = None
     
     if use_cache:
         try:
-            from cache_dataset import load_cached_dataset
-            print("[data] Attempting to load from cache...")
-            graphs, raw_sg = load_cached_dataset(n_facts=n_facts, limit=limit)
+            from cache_dataset import get_cache_dir, get_cache_filename, safe_read_pickle, validate_cache_data
+            import time
             
-            # Check if cache loading was successful
-            if graphs is not None and raw_sg is not None:
-                print(f"[data] ✅ Successfully loaded {len(graphs)} graphs from cache")
+            print("[data] Attempting to load from separate training/testing cache...")
+            
+            # Get cache directory and filenames for training and testing
+            cache_dir = get_cache_dir()
+            base_cache_filename = get_cache_filename(n_facts, limit)
+            
+            # Create separate filenames for training and testing
+            training_cache_filename = f"training_{base_cache_filename}"
+            testing_cache_filename = f"testing_{base_cache_filename}"
+            
+            training_cache_path = os.path.join(cache_dir, training_cache_filename)
+            testing_cache_path = os.path.join(cache_dir, testing_cache_filename)
+            
+            # Check if both cache files exist
+            if os.path.exists(training_cache_path) and os.path.exists(testing_cache_path):
+                try:
+                    # Load training cache
+                    training_cache_data = safe_read_pickle(training_cache_path)
+                    if training_cache_data and validate_cache_data(training_cache_data):
+                        training_graphs = training_cache_data['graphs']
+                        training_raw_sg = training_cache_data['raw_sg']
+                        print(f"[data] ✅ Loaded {len(training_graphs)} training graphs from cache")
+                    else:
+                        print("[data] ❌ Training cache validation failed")
+                        
+                    # Load testing cache
+                    testing_cache_data = safe_read_pickle(testing_cache_path)
+                    if testing_cache_data and validate_cache_data(testing_cache_data):
+                        testing_graphs = testing_cache_data['graphs']
+                        testing_raw_sg = testing_cache_data['raw_sg']
+                        print(f"[data] ✅ Loaded {len(testing_graphs)} testing graphs from cache")
+                    else:
+                        print("[data] ❌ Testing cache validation failed")
+                        
+                    # Check if both loads were successful
+                    if training_graphs is not None and testing_graphs is not None:
+                        print(f"[data] ✅ Successfully loaded {len(training_graphs)} training + {len(testing_graphs)} testing graphs from cache")
+                    else:
+                        print("[data] ❌ Cache loading failed, will process from scratch")
+                        training_graphs = None
+                        testing_graphs = None
+                        training_raw_sg = None
+                        testing_raw_sg = None
+                        
+                except Exception as e:
+                    print(f"[data] Error loading cache: {e}, processing from scratch")
+                    training_graphs = None
+                    testing_graphs = None
+                    training_raw_sg = None
+                    testing_raw_sg = None
             else:
-                print("[data] ❌ Cache loading failed, will process from scratch")
-                graphs = None
-                raw_sg = None
+                print(f"[data] Cache files not found:")
+                print(f"   Training cache: {training_cache_path}")
+                print(f"   Testing cache: {testing_cache_path}")
+                print("[data] Will process from scratch")
                 
         except ImportError:
             print("[data] Cache module not found, processing from scratch")
@@ -842,128 +956,118 @@ def run_training(
             print(f"[data] Error loading cache: {e}, processing from scratch")
     
     # If cache failed or disabled, process from scratch
-    if graphs is None or raw_sg is None:
+    if training_graphs is None or testing_graphs is None:
         print("[data] Processing dataset from scratch...")
         # Use absolute path for subgraphs file
         import os
         subgraphs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), config.SUBGRAPHS_JSONL)
-        loader = SubGraphDataLoader(min_facts=n_facts, limit=limit, jsonl_path=subgraphs_path)
-        graphs, raw_sg = encode_all_to_heterodata(loader)
         
-        # Optionally save to cache for future use (save the already-encoded data)
+        # Create loader with fixed splits
+        loader = SubGraphDataLoader(
+            min_facts=n_facts, 
+            limit=limit, 
+            jsonl_path=subgraphs_path,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            seed=seed,
+            split_data=True
+        )
+        
+        # Encode training and testing data separately
+        training_graphs, testing_graphs, training_raw_sg, testing_raw_sg = encode_all_to_heterodata(loader)
+        
+        # Optionally save to separate cache files for future use
         if use_cache:
             try:
                 from cache_dataset import get_cache_dir, get_cache_filename, atomic_write_pickle
                 import time
                 
-                print("[data] Saving processed dataset to cache for future use...")
+                print("[data] Saving processed dataset to separate training/testing cache files...")
                 
-                # Get cache directory and filename
+                # Get cache directory and filenames
                 cache_dir = get_cache_dir()
-                cache_filename = get_cache_filename(n_facts, limit)
-                cache_path = os.path.join(cache_dir, cache_filename)
+                base_cache_filename = get_cache_filename(n_facts, limit)
+                
+                # Create separate filenames for training and testing
+                training_cache_filename = f"training_{base_cache_filename}"
+                testing_cache_filename = f"testing_{base_cache_filename}"
+                
+                training_cache_path = os.path.join(cache_dir, training_cache_filename)
+                testing_cache_path = os.path.join(cache_dir, testing_cache_filename)
                 
                 # Create cache directory if it doesn't exist
                 os.makedirs(cache_dir, exist_ok=True)
                 
-                # Prepare cache data (graphs and raw_sg are already encoded)
-                cache_data = {
-                    'graphs': graphs,
-                    'raw_sg': raw_sg,
+                # Prepare training cache data
+                training_cache_data = {
+                    'graphs': training_graphs,
+                    'raw_sg': training_raw_sg,
                     'n_facts': n_facts,
                     'limit': limit,
                     'timestamp': time.time(),
-                    'graph_count': len(graphs)
+                    'graph_count': len(training_graphs),
+                    'split_type': 'training'
                 }
                 
-                # Save the already-encoded data
-                atomic_write_pickle(cache_data, cache_path)
-                print(f"[data] ✅ Dataset cached successfully to {cache_path}")
+                # Prepare testing cache data
+                testing_cache_data = {
+                    'graphs': testing_graphs,
+                    'raw_sg': testing_raw_sg,
+                    'n_facts': n_facts,
+                    'limit': limit,
+                    'timestamp': time.time(),
+                    'graph_count': len(testing_graphs),
+                    'split_type': 'testing'
+                }
+                
+                # Save the separate cache files
+                atomic_write_pickle(training_cache_data, training_cache_path)
+                atomic_write_pickle(testing_cache_data, testing_cache_path)
+                
+                print(f"[data] ✅ Dataset cached successfully to separate files:")
+                print(f"   Training: {training_cache_path}")
+                print(f"   Testing: {testing_cache_path}")
                 
             except Exception as e:
                 print(f"[data] Warning: Failed to save cache: {e}")
     
     # Attach labels and metadata for grouping (always needed, whether from cache or scratch)
     print("[data] Attaching labels and metadata to graphs")
-    attach_y_and_meta(graphs, raw_sg)
+    attach_y_and_meta(training_graphs, training_raw_sg)
+    attach_y_and_meta(testing_graphs, testing_raw_sg)
 
-    if len(graphs) < 3:
-        raise RuntimeError(f"Need at least 3 graphs to split; got {len(graphs)}")
+    if len(training_graphs) < 3:
+        raise RuntimeError(f"Need at least 3 training graphs to split; got {len(training_graphs)}")
 
-    print(f"[data] Loaded {len(graphs)} graphs")
-    if len(graphs) != len(raw_sg):
+    print(f"[data] Loaded {len(training_graphs)} training graphs and {len(testing_graphs)} testing graphs")
+    if len(training_graphs) != len(training_raw_sg) or len(testing_graphs) != len(testing_raw_sg):
         raise RuntimeError("Mismatch between encoded graphs and raw subgraphs.")
 
-    # 2) Group-aware random split by primary ticker ---------------------------
-    groups = [getattr(g, "meta_primary_ticker", None) for g in graphs]
-    print(f"[split] Grouping by primary ticker; found {len(set(groups))} unique tickers")
+    # 2) Split training data into train and validation ---------------------------
+    print("[data] Splitting training data into train and validation sets...")
     
-    if time_aware_split:
-        # Use time-aware splitting
-        from datetime import datetime
-        print("[split] Using time-aware splitting...")
-        
-        # Sort by reported_date
-        dated_items = []
-        for g, sg in zip(graphs, raw_sg):
-            if hasattr(sg, 'reported_date'):
-                try:
-                    date = datetime.strptime(sg.reported_date, '%Y-%m-%d')
-                    dated_items.append((date, g))
-                except:
-                    dated_items.append((datetime.min, g))
-            else:
-                dated_items.append((datetime.min, g))
-        
-        # Sort by date (oldest first)
-        dated_items.sort(key=lambda x: x[0])
-        
-        # Split chronologically
-        n = len(dated_items)
-        n_train = int(n * train_ratio)
-        n_val = int(n * val_ratio)
-        
-        train_items = dated_items[:n_train]
-        val_items = dated_items[n_train:n_train + n_val]
-        test_items = dated_items[n_train + n_val:]
-        
-        train_set = [item[1] for item in train_items]
-        val_set = [item[1] for item in val_items]
-        test_set = [item[1] for item in test_items]
-        
-        print(f"[split] Time-aware split:")
-        print(f"  Train: {len(train_set)} (earliest: {train_items[0][0] if train_items else 'N/A'})")
-        print(f"  Val: {len(val_set)} (earliest: {val_items[0][0] if val_items else 'N/A'})")
-        print(f"  Test: {len(test_set)} (earliest: {test_items[0][0] if test_items else 'N/A'})")
-    else:
-        # Use random splitting
-        train_set, val_set, test_set, _, _, _ = split_list(
-            dataset=graphs,
-            train_ratio=train_ratio,
-            val_ratio=val_ratio,
-            seed=seed,
-        )
+    # Split training graphs into train and validation
+    train_set, val_set, _, train_indices, val_indices, _ = split_list(
+        dataset=training_graphs,
+        train_ratio=train_ratio/(train_ratio + val_ratio),  # Adjust ratio for train/val split
+        val_ratio=val_ratio/(train_ratio + val_ratio),      # Adjust ratio for train/val split
+        seed=seed
+    )
+    
+    # Test set is already separate
+    test_set = testing_graphs
+    
+    # Combine raw subgraphs for logging
+    all_raw_sg = training_raw_sg + testing_raw_sg
+    
+    # Create indices for logging (train and val indices are relative to training_graphs)
+    # Test indices start after training_graphs
+    test_indices = list(range(len(training_graphs), len(training_graphs) + len(testing_graphs)))
+    
+    print(f"[data] Final split: {len(train_set)} train, {len(val_set)} val, {len(test_set)} test")
     
     # Log data split information
-    if time_aware_split:
-        # For time-aware split, we need to reconstruct the indices
-        all_graphs = train_set + val_set + test_set
-        train_indices = list(range(len(train_set)))
-        val_indices = list(range(len(train_set), len(train_set) + len(val_set)))
-        test_indices = list(range(len(train_set) + len(val_set), len(all_graphs)))
-    else:
-        # Get indices from the original split_list call
-        # We need to recreate the split to get indices
-        g = torch.Generator().manual_seed(seed)
-        perm = torch.randperm(len(graphs), generator=g).tolist()
-        n = len(graphs)
-        n_train = int(n * train_ratio)
-        n_val = int(n * val_ratio)
-        train_indices = perm[:n_train]
-        val_indices = perm[n_train:n_train+n_val]
-        test_indices = perm[n_train+n_val:]
-    
-    logger.log_data_split(train_set, val_set, test_set, raw_sg, train_indices, val_indices, test_indices)
+    logger.log_data_split(train_set, val_set, test_set, all_raw_sg, train_indices, val_indices, test_indices)
 
     # 3) Fit train-only scaler on company features, then apply to all splits --
     # After you create train_set, val_set, test_set
@@ -1266,7 +1370,7 @@ def run_training(
     )
     
     # Save test predictions to CSV
-    logger.save_test_predictions_csv(test_metrics, test_indices, raw_sg)
+    logger.save_test_predictions_csv(test_metrics, test_indices, all_raw_sg)
     
     # Print detailed test metrics
     if "tp" in test_metrics:

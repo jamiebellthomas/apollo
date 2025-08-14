@@ -285,7 +285,13 @@ def test_heterognn_with_real_data():
             return True
         
         text_encoder = get_cached_transformer()
-        graphs, raw_sg = encode_all_to_heterodata(loader, batch_size=5)
+        # Encode to HeteroData - now returns separate training and testing data
+        training_graphs, testing_graphs, training_raw_sg, testing_raw_sg = encode_all_to_heterodata(loader, batch_size=5)
+        
+        # Combine for testing purposes
+        graphs = training_graphs + testing_graphs
+        raw_sg = training_raw_sg + testing_raw_sg
+        
         attach_y_and_meta(graphs, raw_sg)
         
         # Ensure we have enough data for splits
