@@ -50,7 +50,9 @@ MANUAL_RESULTS_DIRECTORIES = [
 
 # Option 2: Automatic discovery (recommended)
 USE_AUTO_DISCOVERY = True  # Set to True to automatically find all Results subdirectories
-RESULTS_BASE_DIR = "Results"  # Base directory to search for model results
+
+MODEL_TYPE = "heterognn"
+RESULTS_BASE_DIR = f"Results/{MODEL_TYPE}"  # Base directory to search for model results
 
 # EPS Surprises analysis
 EPS_SURPRISES_FILE = "Data/eps_surprises_quarterly_2012_2024.csv"

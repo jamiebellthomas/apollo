@@ -44,7 +44,7 @@ BENCHMARK_TICKER = "SPY"
 SAVE_PLOT_PATH = "Plots/results/"
 
 # Option 2: Results folder mode (reads from test_predictions.csv)
-RESULTS_FOLDER = "Results/20250813_171808"  # Path to results folder
+RESULTS_FOLDER = "Results/seed=738503"  # Path to results folder
 PREDICTIONS_FILE = "test_predictions.csv"   # Name of predictions file
 
 # Option 3: EPS Surprises analysis

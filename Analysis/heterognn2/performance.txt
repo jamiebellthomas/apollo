@@ -1,0 +1,38 @@
+Aggregated Model Performance for heterognn2
+==================================================
+
+Number of test cases: 1011
+Number of models used: 2
+
+Performance Metrics:
+Accuracy:  0.7122
+Precision: 0.5288
+Recall:    0.1852
+F1-Score:  0.2743
+
+Detailed Classification Report:
+------------------------------
+Class 0:
+  precision: 0.7332
+  recall: 0.9314
+  f1-score: 0.8205
+  support: 714.0000
+
+Class 1:
+  precision: 0.5288
+  recall: 0.1852
+  f1-score: 0.2743
+  support: 297.0000
+
+Class macro avg:
+  precision: 0.6310
+  recall: 0.5583
+  f1-score: 0.5474
+  support: 1011.0000
+
+Class weighted avg:
+  precision: 0.6732
+  recall: 0.7122
+  f1-score: 0.6600
+  support: 1011.0000
+

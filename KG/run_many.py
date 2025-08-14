@@ -56,7 +56,7 @@ def run_multiple_experiments(
             # Using the same hyperparameters as in run.py
             model, test_metrics, history = run_training(
                 # Model configuration
-                model_type="heterognn2",  # You can change this
+                model_type="heterognn",  # You can change this
                 time_dim=8,
                 
                 # Data configuration
@@ -66,16 +66,16 @@ def run_multiple_experiments(
                 
                 # Model architecture
                 hidden_channels=128,
-                num_layers=3,
+                num_layers=4,
                 feature_dropout=0.3,
                 edge_dropout=0.1,
                 final_dropout=0.2,
                 readout="company",
                 
                 # Training configuration
-                batch_size=32,
+                batch_size=24,
                 epochs=100,
-                lr=3e-5,
+                lr=1e-5,
                 weight_decay=1e-4,
                 seed=seed,  # This is the key parameter that changes
                 grad_clip=1.0,

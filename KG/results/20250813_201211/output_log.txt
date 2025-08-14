@@ -1,0 +1,7 @@
+2025-08-13 20:12:11,862 - INFO - ============================================================
+2025-08-13 20:12:11,862 - INFO - EXPERIMENT START
+2025-08-13 20:12:11,862 - INFO - ============================================================
+2025-08-13 20:12:11,862 - INFO - Experiment directory: results/20250813_201211
+2025-08-13 20:12:11,862 - INFO - Hyperparameters saved to results/20250813_201211/hyperparameters.txt
+2025-08-13 20:12:11,872 - INFO - Data split info saved to results/20250813_201211/data_split.json
+2025-08-13 20:12:11,872 - INFO - Data split: Train=6, Val=2, Test=2

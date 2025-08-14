@@ -50,7 +50,8 @@ MANUAL_RESULTS_DIRECTORIES = [
 
 # Option 2: Automatic discovery (recommended)
 USE_AUTO_DISCOVERY = True  # Set to True to automatically find all Results subdirectories
-RESULTS_BASE_DIR = "Results"  # Base directory to search for model results
+MODEL_TYPE = "heterognn"
+RESULTS_BASE_DIR = f"Results/{MODEL_TYPE}"  # Base directory to search for model results
 
 # EPS Surprises analysis
 EPS_SURPRISES_FILE = "Data/eps_surprises_quarterly_2012_2024.csv"
@@ -453,8 +454,6 @@ def main():
     
     if USE_AUTO_DISCOVERY:
         results_dirs = get_results_directories(RESULTS_BASE_DIR)
-        # # get last 7 results dirs
-        results_dirs = results_dirs[-10:]
 
     else:
         results_dirs = MANUAL_RESULTS_DIRECTORIES

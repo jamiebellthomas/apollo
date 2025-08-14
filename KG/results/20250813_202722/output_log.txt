@@ -1,0 +1,16 @@
+2025-08-13 20:27:22,387 - INFO - ============================================================
+2025-08-13 20:27:22,387 - INFO - EXPERIMENT START
+2025-08-13 20:27:22,387 - INFO - ============================================================
+2025-08-13 20:27:22,387 - INFO - Experiment directory: results/20250813_202722
+2025-08-13 20:27:22,388 - INFO - Hyperparameters saved to results/20250813_202722/hyperparameters.txt
+2025-08-13 20:27:22,397 - INFO - Data split info saved to results/20250813_202722/data_split.json
+2025-08-13 20:27:22,397 - INFO - Data split: Train=6, Val=2, Test=2
+2025-08-13 20:27:22,418 - INFO - Model saved to results/20250813_202722/model.pt
+2025-08-13 20:27:22,423 - INFO - Test predictions saved to results/20250813_202722/test_predictions.csv
+2025-08-13 20:27:22,423 - INFO - CSV contains 2 predictions
+2025-08-13 20:27:22,423 - INFO - ============================================================
+2025-08-13 20:27:22,423 - INFO - EXPERIMENT END
+2025-08-13 20:27:22,423 - INFO - ============================================================
+2025-08-13 20:27:22,423 - INFO - Best epoch: 2
+2025-08-13 20:27:22,423 - INFO - Final test metrics: {'acc': 0.5, 'loss': 0.3441411256790161, 'auc': 1.0, 'tp': 0, 'tn': 1, 'fp': 0, 'fn': 1, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0, 'pred_0': 2, 'pred_1': 0, 'true_0': 1, 'true_1': 1, 'prob_mean': 0.5168970227241516, 'prob_std': 0.002722442150115967, 'prob_min': 0.5141745805740356, 'prob_max': 0.5196194648742676, 'raw_predictions': [{'probability': 0.5196194648742676, 'actual_label': 1, 'predicted_label': 0}, {'probability': 0.5141745805740356, 'actual_label': 0, 'predicted_label': 0}]}
+2025-08-13 20:27:22,423 - INFO - Results saved to results/20250813_202722/results.json

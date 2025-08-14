@@ -1,0 +1,29 @@
+=== EXPERIMENT HYPERPARAMETERS ===
+
+n_facts: 35
+limit: None
+use_cache: True
+model_type: heterognn2
+hidden_channels: 128
+num_layers: 4
+feature_dropout: 0.3
+edge_dropout: 0.1
+final_dropout: 0.2
+readout: company
+time_dim: 16
+train_ratio: 0.75
+val_ratio: 0.1
+batch_size: 32
+epochs: 100
+lr: 3e-05
+weight_decay: 0.0001
+seed: 59018
+grad_clip: 1.0
+loss_type: weighted_bce
+early_stopping: True
+patience: 20
+lr_scheduler: cosine
+lr_step_size: 10
+lr_gamma: 0.5
+time_aware_split: False
+optimizer_type: adam

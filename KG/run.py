@@ -27,13 +27,17 @@ import io
 class ComprehensiveLogger:
     """Comprehensive logging system for experiment tracking."""
     
-    def __init__(self, base_dir="results"):
+    def __init__(self, base_dir="results", model_type="heterognn"):
         self.base_dir = Path(base_dir)
-        self.base_dir.mkdir(exist_ok=True)
+        self.model_type = model_type.lower()
         
-        # Create timestamped experiment folder
+        # Create model-specific directory
+        self.model_dir = self.base_dir / self.model_type
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create timestamped experiment folder within model directory
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.experiment_dir = self.base_dir / timestamp
+        self.experiment_dir = self.model_dir / timestamp
         self.experiment_dir.mkdir(exist_ok=True)
         
         # Setup logging
@@ -62,6 +66,7 @@ class ComprehensiveLogger:
         
         with open(hyperparams_file, 'w') as f:
             f.write("=== EXPERIMENT HYPERPARAMETERS ===\n\n")
+            f.write(f"Model Type: {self.model_type}\n\n")
             for key, value in kwargs.items():
                 f.write(f"{key}: {value}\n")
                 
@@ -151,6 +156,7 @@ class ComprehensiveLogger:
     def save_results(self, test_metrics, history, best_epoch):
         """Save results to JSON file."""
         results = {
+            "model_type": self.model_type,
             "test_metrics": test_metrics,
             "training_history": history,
             "best_epoch": best_epoch,
@@ -172,6 +178,7 @@ class ComprehensiveLogger:
         self.logger.info("=" * 60)
         self.logger.info("EXPERIMENT START")
         self.logger.info("=" * 60)
+        self.logger.info(f"Model Type: {self.model_type}")
         self.logger.info(f"Experiment directory: {self.experiment_dir}")
         self.log_hyperparameters(**kwargs)
         
@@ -180,6 +187,7 @@ class ComprehensiveLogger:
         self.logger.info("=" * 60)
         self.logger.info("EXPERIMENT END")
         self.logger.info("=" * 60)
+        self.logger.info(f"Model Type: {self.model_type}")
         self.logger.info(f"Best epoch: {best_epoch}")
         self.logger.info(f"Final test metrics: {test_metrics}")
         self.save_results(test_metrics, history, best_epoch)
@@ -748,7 +756,7 @@ def run_training(
 ) -> Tuple[nn.Module, Dict[str, float], Dict[str, list]]:
     
     # Initialize comprehensive logger
-    logger = ComprehensiveLogger()
+    logger = ComprehensiveLogger(model_type=model_type)
     
     # Log experiment start with all hyperparameters
     logger.log_experiment_start(
@@ -1209,7 +1217,7 @@ if __name__ == "__main__":
     # ============================================================
     
     # Choose which model to run
-    MODEL_TYPE = "heterognn2"  # "heterognn" or "heterognn2"
+    MODEL_TYPE = "heterognn"  # "heterognn" or "heterognn2"
     
     # Data configuration
     N_FACTS = 35  # Minimum number of facts per subgraph
