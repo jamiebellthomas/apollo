@@ -83,15 +83,25 @@ def load_predictions(file_path):
 def aggregate_predictions(prediction_files):
     """
     Aggregate predictions from multiple files using majority voting.
-    Returns a DataFrame with aggregated predictions.
+    Returns a DataFrame with aggregated predictions for the 191 test cases only.
     """
+    # Load the test set to get the 191 test cases
+    test_set_df = pd.read_csv("Data/test_set.csv")
+    test_set_df['test_case'] = test_set_df['Ticker'] + '_' + test_set_df['Reported_Date']
+    test_cases = set(test_set_df['test_case'].tolist())
+    
+    print(f"Filtering for {len(test_cases)} test cases from test_set.csv")
+    
     all_predictions = []
     
     # Load all prediction files
     for file_path in prediction_files:
         pred_df = load_predictions(file_path)
         if pred_df is not None:
-            all_predictions.append(pred_df)
+            # Filter for only test cases in the test set
+            pred_df = pred_df[pred_df['test_case'].isin(test_cases)]
+            if len(pred_df) > 0:
+                all_predictions.append(pred_df)
     
     if not all_predictions:
         print("No valid prediction files found!")
@@ -128,7 +138,9 @@ def aggregate_predictions(prediction_files):
             'Vote_Count_1': len(group[group['Predicted_Label'] == 1])
         })
     
-    return pd.DataFrame(aggregated)
+    result_df = pd.DataFrame(aggregated)
+    print(f"Aggregated predictions for {len(result_df)} test cases")
+    return result_df
 
 def calculate_performance_metrics(aggregated_df):
     """
@@ -440,21 +452,32 @@ def plot_aggregation(aggregated_df, days_before=20, days_after=40, save_path=Non
     
     print(f"Calculating CAR for {len(positive_events)} predicted positive events...")
     
-    # Calculate CAR for each predicted positive event
+    # Load cached CAR data
+    eps_car_data = load_car_data_from_cache(EPS_CAR_CACHE_FILE)
+    if eps_car_data is None:
+        print("Error: Could not load cached CAR data")
+        return
+    
+    # Calculate CAR for each predicted positive event using cached data
     car_data_list = []
     for _, row in positive_events.iterrows():
-        car_data = calculate_car_for_ticker(
-            row['Ticker'], 
-            row['Reported_Date'], 
-            days_before, 
-            days_after
-        )
-        if car_data is not None:
-            car_data_list.append(car_data)
+        # Find matching event in cached data
+        found = False
+        for cached_event in eps_car_data:
+            if (cached_event['ticker'] == row['Ticker'] and 
+                cached_event['event_date'] == row['Reported_Date']):
+                car_data_list.append(cached_event)
+                found = True
+                break
+        
+        if not found:
+            print(f"Warning: Could not find cached CAR data for {row['Ticker']} on {row['Reported_Date']}")
     
     if not car_data_list:
         print(f"No valid CAR data found for {arch_name}")
         return
+    
+    print(f"Found CAR data for {len(car_data_list)}/{len(positive_events)} events")
     
     # Create the plot
     fig, ax = plt.subplots(figsize=(14, 10))
@@ -482,8 +505,18 @@ def plot_aggregation(aggregated_df, days_before=20, days_after=40, save_path=Non
     # Calculate and plot average CAR
     if all_car_data:
         avg_car = np.mean(all_car_data, axis=0)
+        
+        # Calculate precision for this architecture
+        precision = calculate_average_precision_for_model_type_analysis(arch_name)
+        
+        # Create legend label with precision
+        if precision is not None:
+            legend_label = r'$\text{' + arch_name + r' Average CAR} \quad (N = ' + str(len(all_car_data)) + r', P = ' + f'{precision:.3f}' + r')$'
+        else:
+            legend_label = r'$\text{' + arch_name + r' Average CAR} \quad (N = ' + str(len(all_car_data)) + r')$'
+        
         line, = ax.plot(relative_days, avg_car, 
-                label=r'$\text{' + arch_name + r' Average CAR} \quad (N = ' + str(len(all_car_data)) + r')$', 
+                label=legend_label, 
                 color='blue', linewidth=4, marker='s', markersize=8)
         line_objects.append(line)
         line_labels.append(f"{arch_name} Average CAR (N = {len(all_car_data)})")
@@ -565,8 +598,18 @@ def plot_combined_car_comparison(predictions_car_data, eps_car_data, days_before
         predictions_cars = [data['car'] for data in predictions_car_data if data is not None]
         if predictions_cars:
             avg_predictions_car = np.mean(predictions_cars, axis=0)
+            
+            # Calculate precision for this architecture
+            precision = calculate_average_precision_for_model_type_analysis(arch_name)
+            
+            # Create legend label with precision
+            if precision is not None:
+                legend_label = r'$\text{' + arch_name + r' Average CAR} \quad (N = ' + str(len(predictions_cars)) + r', P = ' + f'{precision:.3f}' + r')$'
+            else:
+                legend_label = r'$\text{' + arch_name + r' Average CAR} \quad (N = ' + str(len(predictions_cars)) + r')$'
+            
             line, = ax.plot(relative_days, avg_predictions_car, 
-                    label=r'$\text{' + arch_name + r' Average CAR} \quad (N = ' + str(len(predictions_cars)) + r')$', 
+                    label=legend_label, 
                     color='blue', linewidth=4, marker='s', markersize=8)
             line_objects.append(line)
             line_labels.append(f"{arch_name} Average CAR (N = {len(predictions_cars)})")
@@ -581,6 +624,15 @@ def plot_combined_car_comparison(predictions_car_data, eps_car_data, days_before
                     color='green', linewidth=4, marker='o', markersize=8)
             line_objects.append(line)
             line_labels.append(f"Positive EPS Surprises Average CAR (N = {len(eps_cars)})")
+    
+    # Add test set average CAR
+    test_avg_car, test_relative_days = calculate_test_set_average_car()
+    if test_avg_car is not None and test_relative_days is not None:
+        line, = ax.plot(test_relative_days, test_avg_car, 
+                label=r'$\text{Test Set Average CAR} \quad (N = 191)$', 
+                color='red', linewidth=4, marker='^', markersize=8, linestyle='--')
+        line_objects.append(line)
+        line_labels.append(f"Test Set Average CAR (N = 191)")
     
     # Add vertical line at event date
     ax.axvline(x=0, color='red', linestyle='--', alpha=0.7, label=r'$\text{Event Date} \quad (t = 0)$')
@@ -630,13 +682,12 @@ def plot_combined_car_comparison(predictions_car_data, eps_car_data, days_before
     
     plt.show()
 
-def plot_aggregation_car_comparison(heterognn_car_data, heterognn2_car_data, eps_car_data, days_before, days_after, save_path="Plots/results"):
+def plot_aggregation_car_comparison(architectures_car_data, eps_car_data, days_before, days_after, save_path="Plots/results"):
     """
-    Plot combined CAR analysis showing average CARs for both aggregated models vs EPS surprises.
+    Plot combined CAR analysis showing average CARs for all architectures vs EPS surprises.
     
     Args:
-        heterognn_car_data (list): List of CAR data for heterognn aggregated predictions
-        heterognn2_car_data (list): List of CAR data for heterognn2 aggregated predictions
+        architectures_car_data (dict): Dictionary of architecture names to list of CAR data
         eps_car_data (list): List of CAR data for EPS surprises
         days_before (int): Number of days before event
         days_after (int): Number of days after event
@@ -651,27 +702,28 @@ def plot_aggregation_car_comparison(heterognn_car_data, heterognn2_car_data, eps
     line_objects = []
     line_labels = []
     
-    # Plot heterognn average CAR
-    if heterognn_car_data:
-        heterognn_cars = [data['car'] for data in heterognn_car_data if data is not None]
-        if heterognn_cars:
-            avg_heterognn_car = np.mean(heterognn_cars, axis=0)
-            line, = ax.plot(relative_days, avg_heterognn_car, 
-                    label=r'$\text{HeteroGNN Average CAR} \quad (N = ' + str(len(heterognn_cars)) + r')$', 
-                    color='blue', linewidth=4, marker='s', markersize=8)
-            line_objects.append(line)
-            line_labels.append(f"HeteroGNN Average CAR (N = {len(heterognn_cars)})")
-    
-    # Plot heterognn2 average CAR
-    if heterognn2_car_data:
-        heterognn2_cars = [data['car'] for data in heterognn2_car_data if data is not None]
-        if heterognn2_cars:
-            avg_heterognn2_car = np.mean(heterognn2_cars, axis=0)
-            line, = ax.plot(relative_days, avg_heterognn2_car, 
-                    label=r'$\text{HeteroGNN2 Average CAR} \quad (N = ' + str(len(heterognn2_cars)) + r')$', 
-                    color='red', linewidth=4, marker='^', markersize=8)
-            line_objects.append(line)
-            line_labels.append(f"HeteroGNN2 Average CAR (N = {len(heterognn2_cars)})")
+    # Plot average CAR for each architecture
+    colors = plt.cm.Set3(np.linspace(0, 1, len(architectures_car_data)))
+    for i, (arch_name, car_data_list) in enumerate(architectures_car_data.items()):
+        if car_data_list:
+            cars = [data['car'] for data in car_data_list if data is not None]
+            if cars:
+                avg_car = np.mean(cars, axis=0)
+                
+                # Calculate precision for this architecture
+                precision = calculate_average_precision_for_model_type_analysis(arch_name)
+                
+                # Create legend label with precision
+                if precision is not None:
+                    legend_label = r'$\text{' + arch_name + r' Average CAR} \quad (N = ' + str(len(cars)) + r', P = ' + f'{precision:.3f}' + r')$'
+                else:
+                    legend_label = r'$\text{' + arch_name + r' Average CAR} \quad (N = ' + str(len(cars)) + r')$'
+                
+                line, = ax.plot(relative_days, avg_car, 
+                        label=legend_label, 
+                        color=colors[i], linewidth=4, marker='s', markersize=8)
+                line_objects.append(line)
+                line_labels.append(f"{arch_name} Average CAR (N = {len(cars)})")
     
     # Plot EPS surprises average CAR
     if eps_car_data:
@@ -684,6 +736,15 @@ def plot_aggregation_car_comparison(heterognn_car_data, heterognn2_car_data, eps
             line_objects.append(line)
             line_labels.append(f"Positive EPS Surprises Average CAR (N = {len(eps_cars)})")
     
+    # Add test set average CAR
+    test_avg_car, test_relative_days = calculate_test_set_average_car()
+    if test_avg_car is not None and test_relative_days is not None:
+        line, = ax.plot(test_relative_days, test_avg_car, 
+                label=r'$\text{Test Set Average CAR} \quad (N = 191)$', 
+                color='red', linewidth=4, marker='^', markersize=8, linestyle='--')
+        line_objects.append(line)
+        line_labels.append(f"Test Set Average CAR (N = 191)")
+    
     # Add vertical line at event date
     ax.axvline(x=0, color='red', linestyle='--', alpha=0.7, label=r'$\text{Event Date} \quad (t = 0)$')
     
@@ -695,7 +756,7 @@ def plot_aggregation_car_comparison(heterognn_car_data, heterognn2_car_data, eps
     ax.set_ylabel(r'Cumulative Abnormal Returns (CAR)', fontsize=12)
     
     # Create informative title
-    title = r"$\text{Average CAR Comparison: Aggregated Models vs Positive EPS Surprises}$"
+    title = r"$\text{Average CAR Comparison: All Architectures vs Positive EPS Surprises}$"
     ax.set_title(title, fontsize=14)
     ax.legend(fontsize=12, loc='best')
     ax.grid(True, alpha=0.3)
@@ -757,8 +818,18 @@ def plot_aggregation_vs_best_comparison(aggregated_car_data, best_car_data, days
         aggregated_cars = [data['car'] for data in aggregated_car_data if data is not None]
         if aggregated_cars:
             avg_aggregated_car = np.mean(aggregated_cars, axis=0)
+            
+            # Calculate precision for this architecture
+            precision = calculate_average_precision_for_model_type_analysis(arch_name)
+            
+            # Create legend label with precision
+            if precision is not None:
+                legend_label = r'$\text{' + arch_name + r' Aggregated Average CAR} \quad (N = ' + str(len(aggregated_cars)) + r', P = ' + f'{precision:.3f}' + r')$'
+            else:
+                legend_label = r'$\text{' + arch_name + r' Aggregated Average CAR} \quad (N = ' + str(len(aggregated_cars)) + r')$'
+            
             line, = ax.plot(relative_days, avg_aggregated_car, 
-                    label=r'$\text{' + arch_name + r' Aggregated Average CAR} \quad (N = ' + str(len(aggregated_cars)) + r')$', 
+                    label=legend_label, 
                     color='blue', linewidth=4, marker='s', markersize=8)
             line_objects.append(line)
             line_labels.append(f"{arch_name} Aggregated Average CAR (N = {len(aggregated_cars)})")
@@ -894,6 +965,86 @@ def print_car_summary(car_data_list, days_before, arch_name="Model"):
         print(f"Average AR: {np.mean(all_avg_ars):.4f}")
         print(f"Standard Deviation of CAR Change: {np.std(all_car_changes):.4f}")
 
+# =============================================================================
+
+def calculate_test_set_average_car(eps_car_cache_file="Data/eps_car_cache.csv", test_set_file="Data/test_set.csv"):
+    """
+    Calculate the average CAR for all instances in the test set.
+    
+    Args:
+        eps_car_cache_file (str): Path to EPS CAR cache file
+        test_set_file (str): Path to test set file
+    
+    Returns:
+        tuple: (average_car_values, relative_days) or (None, None) if error
+    """
+    try:
+        # Load test set
+        test_df = pd.read_csv(test_set_file)
+        print(f"Loaded test set with {len(test_df)} instances")
+        
+        # Load CAR cache
+        car_df = pd.read_csv(eps_car_cache_file)
+        print(f"Loaded CAR cache with {len(car_df)} records")
+        
+        # Create a key for matching (ticker + event_date)
+        test_df['key'] = test_df['Ticker'] + '_' + test_df['Reported_Date']
+        car_df['key'] = car_df['ticker'] + '_' + car_df['event_date']
+        
+        # Find matching records
+        matched_records = []
+        for _, test_row in test_df.iterrows():
+            key = test_row['key']
+            matching_car = car_df[car_df['key'] == key]
+            if len(matching_car) > 0:
+                car_values = np.array(eval(matching_car.iloc[0]['car_values']))
+                relative_days = np.array(eval(matching_car.iloc[0]['relative_days']))
+                matched_records.append(car_values)
+        
+        if len(matched_records) == 0:
+            print("No matching CAR records found for test set")
+            return None, None
+        
+        # Calculate average CAR
+        avg_car = np.mean(matched_records, axis=0)
+        print(f"Calculated average CAR for {len(matched_records)} test set instances")
+        
+        return avg_car, relative_days
+        
+    except Exception as e:
+        print(f"Error calculating test set average CAR: {e}")
+        return None, None
+
+# =============================================================================
+
+def calculate_average_precision_for_model_type_analysis(model_type):
+    """
+    Calculate average precision for a model type from Analysis directory performance.json files.
+    
+    Args:
+        model_type (str): The model type (e.g., 'heterognn', 'heterognn2')
+    
+    Returns:
+        float: Average precision across all models of this type
+    """
+    import json
+    
+    model_type_path = os.path.join("Analysis", model_type)
+    performance_file = os.path.join(model_type_path, "performance.json")
+    
+    if os.path.exists(performance_file):
+        try:
+            with open(performance_file, 'r') as f:
+                performance = json.load(f)
+                if 'precision' in performance:
+                    return performance['precision']
+        except (json.JSONDecodeError, KeyError):
+            pass
+    
+    return None
+
+# =============================================================================
+
 def main():
     # Default settings - run everything
     results_dir = 'Results'
@@ -951,48 +1102,34 @@ def main():
             # Also generate EPS comparison plot
             print(f"\nGenerating EPS comparison plot for {arch_name}...")
             
-            # Get predictions CAR data from the previous plot
+            # Get predictions CAR data using cached data
             positive_events = aggregated_df[aggregated_df['Aggregated_Predicted_Label'] == 1]
             predictions_car_data = []
             
+            # Load cached CAR data if not already loaded
+            if eps_car_data is None:
+                eps_car_data = load_car_data_from_cache(EPS_CAR_CACHE_FILE)
+                if eps_car_data is None:
+                    print("Error: Could not load cached CAR data")
+                    continue
+            
+            # Find matching events in cached data
             for _, row in positive_events.iterrows():
-                car_data = calculate_car_for_ticker(
-                    row['Ticker'], 
-                    row['Reported_Date'], 
-                    DAYS_BEFORE, 
-                    DAYS_AFTER
-                )
-                if car_data is not None:
-                    predictions_car_data.append(car_data)
+                found = False
+                for cached_event in eps_car_data:
+                    if (cached_event['ticker'] == row['Ticker'] and 
+                        cached_event['event_date'] == row['Reported_Date']):
+                        predictions_car_data.append(cached_event)
+                        found = True
+                        break
+                
+                if not found:
+                    print(f"Warning: Could not find cached CAR data for {row['Ticker']} on {row['Reported_Date']}")
             
             # Store CAR data for aggregation comparison
             all_car_data[arch_name] = predictions_car_data
             
-            # Read EPS surprises and calculate CARs (only once)
-            if eps_car_data is None:
-                # Try to load from cache first
-                eps_car_data = load_car_data_from_cache(EPS_CAR_CACHE_FILE)
-                
-                if eps_car_data is None:
-                    # Cache not available - read EPS surprises file and calculate
-                    eps_events = read_eps_surprises_from_file(EPS_SURPRISES_FILE)
-                    eps_car_data = []
-                    
-                    if eps_events:
-                        print(f"Calculating CAR for {len(eps_events)} positive EPS surprise events...")
-                        for ticker, reported_date in eps_events:
-                            car_data = calculate_car_for_ticker(
-                                ticker, 
-                                reported_date, 
-                                DAYS_BEFORE, 
-                                DAYS_AFTER
-                            )
-                            if car_data is not None:
-                                eps_car_data.append(car_data)
-                        
-                        print(f"Successfully calculated CAR for {len(eps_car_data)} EPS events")
-                else:
-                    print(f"Using cached EPS CAR data with {len(eps_car_data)} events")
+            print(f"Using cached EPS CAR data with {len(eps_car_data)} events")
             
             # Create comparison plot
             if predictions_car_data and eps_car_data:
@@ -1047,15 +1184,17 @@ def main():
     # Generate aggregation comparison plot if requested
     if generate_aggregation_comparison and len(all_car_data) >= 2 and eps_car_data:
         print(f"\nGenerating aggregation comparison plot...")
-        heterognn_car_data = all_car_data.get('heterognn', [])
-        heterognn2_car_data = all_car_data.get('heterognn2', [])
+        print(f"Comparing {len(all_car_data)} architectures: {list(all_car_data.keys())}")
         
-        if heterognn_car_data and heterognn2_car_data:
-            plot_aggregation_car_comparison(heterognn_car_data, heterognn2_car_data, eps_car_data, DAYS_BEFORE, DAYS_AFTER)
+        # Get all architectures that have valid CAR data
+        valid_architectures = {arch: car_data for arch, car_data in all_car_data.items() if car_data}
+        
+        if len(valid_architectures) >= 2:
+            plot_aggregation_car_comparison(valid_architectures, eps_car_data, DAYS_BEFORE, DAYS_AFTER)
         else:
-            print("Skipping aggregation comparison plot - insufficient data from both architectures")
+            print(f"Skipping aggregation comparison plot - need at least 2 architectures with valid data (found {len(valid_architectures)})")
     elif generate_aggregation_comparison:
-        print("Skipping aggregation comparison plot - need both heterognn and heterognn2 data")
+        print("Skipping aggregation comparison plot - need at least 2 architectures with valid data")
 
 if __name__ == "__main__":
     main() 

@@ -12,7 +12,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import yfinance as yf
 from datetime import datetime, timedelta
 import warnings
 import os
@@ -50,7 +49,7 @@ MANUAL_RESULTS_DIRECTORIES = [
 
 # Option 2: Automatic discovery (recommended)
 USE_AUTO_DISCOVERY = True  # Set to True to automatically find all Results subdirectories
-MODEL_TYPE = "heterognn3"
+MODEL_TYPE = "heterognn"
 RESULTS_BASE_DIR = f"Results/{MODEL_TYPE}"  # Base directory to search for model results
 
 # EPS Surprises analysis
@@ -62,6 +61,54 @@ FORCE_RECALCULATE_EPS = False
 SAVE_PLOT_PATH = None  # Set to path if you want to save the plot
 
 # =============================================================================
+
+def calculate_test_set_average_car(eps_car_cache_file="Data/eps_car_cache.csv", test_set_file="Data/test_set.csv"):
+    """
+    Calculate the average CAR for all instances in the test set.
+    
+    Args:
+        eps_car_cache_file (str): Path to EPS CAR cache file
+        test_set_file (str): Path to test set file
+    
+    Returns:
+        tuple: (average_car_values, relative_days) or (None, None) if error
+    """
+    try:
+        # Load test set
+        test_df = pd.read_csv(test_set_file)
+        print(f"Loaded test set with {len(test_df)} instances")
+        
+        # Load CAR cache
+        car_df = pd.read_csv(eps_car_cache_file)
+        print(f"Loaded CAR cache with {len(car_df)} records")
+        
+        # Create a key for matching (ticker + event_date)
+        test_df['key'] = test_df['Ticker'] + '_' + test_df['Reported_Date']
+        car_df['key'] = car_df['ticker'] + '_' + car_df['event_date']
+        
+        # Find matching records
+        matched_records = []
+        for _, test_row in test_df.iterrows():
+            key = test_row['key']
+            matching_car = car_df[car_df['key'] == key]
+            if len(matching_car) > 0:
+                car_values = np.array(eval(matching_car.iloc[0]['car_values']))
+                relative_days = np.array(eval(matching_car.iloc[0]['relative_days']))
+                matched_records.append(car_values)
+        
+        if len(matched_records) == 0:
+            print("No matching CAR records found for test set")
+            return None, None
+        
+        # Calculate average CAR
+        avg_car = np.mean(matched_records, axis=0)
+        print(f"Calculated average CAR for {len(matched_records)} test set instances")
+        
+        return avg_car, relative_days
+        
+    except Exception as e:
+        print(f"Error calculating test set average CAR: {e}")
+        return None, None
 
 def read_predictions_from_folder(results_folder, predictions_file="test_predictions.csv"):
     """
@@ -158,102 +205,6 @@ def load_car_data_from_cache(cache_file):
         print(f"Error loading cache: {e}")
         return None
 
-def calculate_returns(prices):
-    """Calculate daily returns from price data."""
-    return prices.pct_change().dropna()
-
-def fetch_stock_data(ticker, start_date, end_date):
-    """Fetch stock data using yfinance."""
-    try:
-        stock = yf.Ticker(ticker)
-        data = stock.history(start=start_date, end=end_date)
-        return data['Close']
-    except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
-        return None
-
-def calculate_car(ticker, main_date, days_before, days_after, benchmark_ticker="SPY"):
-    """
-    Calculate Cumulative Abnormal Returns for a single ticker.
-    
-    Args:
-        ticker (str): Stock ticker symbol
-        main_date (str): Main event date in YYYY-MM-DD format
-        days_before (int): Number of days before the event
-        days_after (int): Number of days after the event
-        benchmark_ticker (str): Benchmark ticker (default: SPY for S&P 500)
-    
-    Returns:
-        dict: Dictionary containing CAR data and metadata
-    """
-    # Convert main_date to datetime (timezone-naive)
-    main_dt = pd.to_datetime(main_date).tz_localize(None)
-    
-    # Calculate date range
-    start_date = main_dt - timedelta(days=days_before + 60)  # Extra days for estimation
-    end_date = main_dt + timedelta(days=days_after + 60)
-    
-    # Fetch data
-    stock_data = fetch_stock_data(ticker, start_date, end_date)
-    benchmark_data = fetch_stock_data(benchmark_ticker, start_date, end_date)
-    
-    if stock_data is None or benchmark_data is None:
-        return None
-    
-    # Align data and make timezone-naive
-    aligned_data = pd.DataFrame({
-        'stock': stock_data,
-        'benchmark': benchmark_data
-    }).dropna()
-    
-    # Convert index to timezone-naive if it has timezone info
-    if aligned_data.index.tz is not None:
-        aligned_data.index = aligned_data.index.tz_localize(None)
-    
-    if len(aligned_data) < days_before + days_after + 10:
-        print(f"Insufficient data for {ticker}")
-        return None
-    
-    # Calculate log returns (matching DataAssembly methodology)
-    aligned_data['stock_returns'] = np.log(aligned_data['stock'] / aligned_data['stock'].shift(1))
-    aligned_data['benchmark_returns'] = np.log(aligned_data['benchmark'] / aligned_data['benchmark'].shift(1))
-    aligned_data = aligned_data.dropna()
-    
-    # Find event index
-    event_idx = None
-    for i, date in enumerate(aligned_data.index):
-        if date >= main_dt:
-            event_idx = i
-            break
-    
-    if event_idx is None or event_idx < days_before or event_idx + days_after >= len(aligned_data):
-        print(f"Event date not found or insufficient data around event for {ticker}")
-        return None
-    
-    # Extract event window
-    event_start = event_idx - days_before
-    event_end = event_idx + days_after + 1
-    event_data = aligned_data.iloc[event_start:event_end].copy()
-    
-    # Calculate abnormal returns: r_ticker - r_spy (simple difference, no market model)
-    event_data['abnormal_returns'] = event_data['stock_returns'] - event_data['benchmark_returns']
-    
-    # Calculate CAR (cumulative sum of abnormal returns)
-    event_data['car'] = event_data['abnormal_returns'].cumsum()
-    
-    # Create relative day index
-    relative_days = np.arange(-days_before, days_after + 1)
-    
-    return {
-        'ticker': ticker,
-        'relative_days': relative_days,
-        'car': event_data['car'].values,
-        'abnormal_returns': event_data['abnormal_returns'].values,
-        'alpha': 0.0,  # Not used in simple abnormal return method
-        'beta': 1.0,   # Not used in simple abnormal return method
-        'event_date': main_date
-    }
-
 def process_model_results_from_cache(results_dir, eps_car_data):
     """
     Process a single model results directory using cached EPS data.
@@ -348,6 +299,15 @@ def plot_multi_model_comparison(model_results, eps_car_data, days_before, days_a
                     color='black', linewidth=4, marker='s', markersize=8, linestyle='--')
             line_objects.append(line)
             line_labels.append(f"Positive EPS Surprises Average CAR (N = {len(eps_cars)})")
+    
+    # Add test set average CAR
+    test_avg_car, test_relative_days = calculate_test_set_average_car()
+    if test_avg_car is not None and test_relative_days is not None:
+        line, = ax.plot(test_relative_days, test_avg_car, 
+                label=r'$\text{Test Set Average CAR} \quad (N = 191)$', 
+                color='red', linewidth=4, marker='^', markersize=8, linestyle=':')
+        line_objects.append(line)
+        line_labels.append(f"Test Set Average CAR (N = 191)")
     
     # Add vertical line at event date
     ax.axvline(x=0, color='red', linestyle='--', alpha=0.7, label=r'$\text{Event Date} \quad (t = 0)$')

@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 import warnings
 import os
 import glob
+import json
 warnings.filterwarnings('ignore')
 
 # Configure matplotlib for LaTeX formatting
@@ -63,6 +64,54 @@ FORCE_RECALCULATE_EPS = False
 SAVE_PLOT_PATH = None  # Set to path if you want to save the plot
 
 # =============================================================================
+
+def calculate_test_set_average_car(eps_car_cache_file="Data/eps_car_cache.csv", test_set_file="Data/test_set.csv"):
+    """
+    Calculate the average CAR for all instances in the test set.
+    
+    Args:
+        eps_car_cache_file (str): Path to EPS CAR cache file
+        test_set_file (str): Path to test set file
+    
+    Returns:
+        tuple: (average_car_values, relative_days) or (None, None) if error
+    """
+    try:
+        # Load test set
+        test_df = pd.read_csv(test_set_file)
+        print(f"Loaded test set with {len(test_df)} instances")
+        
+        # Load CAR cache
+        car_df = pd.read_csv(eps_car_cache_file)
+        print(f"Loaded CAR cache with {len(car_df)} records")
+        
+        # Create a key for matching (ticker + event_date)
+        test_df['key'] = test_df['Ticker'] + '_' + test_df['Reported_Date']
+        car_df['key'] = car_df['ticker'] + '_' + car_df['event_date']
+        
+        # Find matching records
+        matched_records = []
+        for _, test_row in test_df.iterrows():
+            key = test_row['key']
+            matching_car = car_df[car_df['key'] == key]
+            if len(matching_car) > 0:
+                car_values = np.array(eval(matching_car.iloc[0]['car_values']))
+                relative_days = np.array(eval(matching_car.iloc[0]['relative_days']))
+                matched_records.append(car_values)
+        
+        if len(matched_records) == 0:
+            print("No matching CAR records found for test set")
+            return None, None
+        
+        # Calculate average CAR
+        avg_car = np.mean(matched_records, axis=0)
+        print(f"Calculated average CAR for {len(matched_records)} test set instances")
+        
+        return avg_car, relative_days
+        
+    except Exception as e:
+        print(f"Error calculating test set average CAR: {e}")
+        return None, None
 
 def read_predictions_from_folder(results_folder, predictions_file="test_predictions.csv"):
     """
@@ -211,6 +260,7 @@ def process_model_results_from_cache(results_dir, eps_car_data):
 def plot_mean_car_with_shred(model_results, eps_car_data, days_before, days_after, save_path=None):
     """
     Plot mean CAR with standard deviation (shred) as shaded area around the line.
+    Shows only the specific model type defined in RESULTS_BASE_DIR.
     
     Args:
         model_results (list): List of tuples (model_name, car_data_list, total_predictions)
@@ -224,7 +274,7 @@ def plot_mean_car_with_shred(model_results, eps_car_data, days_before, days_afte
     # Set up the plot
     relative_days = np.arange(-days_before, days_after + 1)
     
-    # Collect mean CAR lines from each model
+    # Collect mean CAR lines from each model (for the specific model type)
     model_mean_cars = []
     model_names = []
     
@@ -237,29 +287,32 @@ def plot_mean_car_with_shred(model_results, eps_car_data, days_before, days_afte
                 model_mean_cars.append(model_mean_car)
                 model_names.append(model_name)
     
-    if not model_mean_cars:
-        print("No valid CAR data found for any models")
-        return
-    
-    # Convert to numpy array for easier computation
-    model_mean_cars = np.array(model_mean_cars)
-    
-    # Calculate mean and standard deviation of the model-level mean CARs
-    overall_mean_car = np.mean(model_mean_cars, axis=0)
-    overall_std_car = np.std(model_mean_cars, axis=0)
-    
-    # Plot overall mean CAR with shaded area showing standard deviation
-    ax.plot(relative_days, overall_mean_car, 
-            label=r'$\text{Mean CAR Across Models} \quad (N = ' + str(len(model_mean_cars)) + r' \text{ models})$', 
-            color='blue', linewidth=3, marker='o', markersize=6)
-    
-    # Add shaded area for standard deviation (spread)
-    ax.fill_between(relative_days, 
-                    overall_mean_car - overall_std_car, 
-                    overall_mean_car + overall_std_car, 
-                    alpha=0.15, 
-                    color='blue', 
-                    label=r'$\text{±1 Standard Deviation (Spread)}$')
+    # Plot specific model type mean CAR with shaded area showing standard deviation
+    if model_mean_cars:
+        model_mean_cars = np.array(model_mean_cars)
+        overall_mean_car = np.mean(model_mean_cars, axis=0)
+        overall_std_car = np.std(model_mean_cars, axis=0)
+        
+        # Calculate average precision for this model type
+        avg_precision = calculate_average_precision_for_model_type(MODEL_TYPE)
+        
+        # Create legend label with precision
+        if avg_precision is not None:
+            legend_label = r'$\text{' + MODEL_TYPE + r' Average CAR} \quad (N = ' + str(len(model_mean_cars)) + r' \text{ models}, P = ' + f'{avg_precision:.3f}' + r')$'
+        else:
+            legend_label = r'$\text{' + MODEL_TYPE + r' Average CAR} \quad (N = ' + str(len(model_mean_cars)) + r' \text{ models})$'
+        
+        ax.plot(relative_days, overall_mean_car, 
+                label=legend_label, 
+                color='blue', linewidth=3, marker='o', markersize=6)
+        
+        # Add shaded area for standard deviation (spread)
+        ax.fill_between(relative_days, 
+                        overall_mean_car - overall_std_car, 
+                        overall_mean_car + overall_std_car, 
+                        alpha=0.15, 
+                        color='blue', 
+                        label=r'$\text{' + MODEL_TYPE + r' ±1 Standard Deviation}$')
     
     # Add EPS surprises baseline if available
     if eps_car_data:
@@ -268,7 +321,14 @@ def plot_mean_car_with_shred(model_results, eps_car_data, days_before, days_afte
             avg_eps_car = np.mean(eps_cars, axis=0)
             ax.plot(relative_days, avg_eps_car, 
                     label=r'$\text{Positive EPS Surprises Average CAR} \quad (N = ' + str(len(eps_cars)) + r')$', 
-                    color='red', linewidth=3, marker='s', markersize=6, linestyle='--')
+                    color='red', linewidth=3, marker='^', markersize=6, linestyle='--')
+    
+    # Add test set average CAR
+    test_avg_car, test_relative_days = calculate_test_set_average_car()
+    if test_avg_car is not None and test_relative_days is not None:
+        ax.plot(test_relative_days, test_avg_car, 
+                label=r'$\text{Test Set Average CAR} \quad (N = 191)$', 
+                color='orange', linewidth=3, marker='d', markersize=6, linestyle=':')
     
     # Add vertical line at event date
     ax.axvline(x=0, color='black', linestyle='--', alpha=0.7, label=r'$\text{Event Date} \quad (t = 0)$')
@@ -279,7 +339,7 @@ def plot_mean_car_with_shred(model_results, eps_car_data, days_before, days_afte
     # Customize the plot
     ax.set_xlabel(r'Days Relative to Event ($t$)', fontsize=12)
     ax.set_ylabel(r'Cumulative Abnormal Returns (CAR)', fontsize=12)
-    ax.set_title(r"$\text{Mean CAR with Standard Deviation Spread vs Positive EPS Surprises Baseline}$", fontsize=14)
+    ax.set_title(r"$\text{Mean CAR Analysis: " + MODEL_TYPE + r" vs Baselines}$", fontsize=14)
     ax.legend(fontsize=10, loc='best')
     ax.grid(True, alpha=0.3)
     
@@ -297,6 +357,268 @@ def plot_mean_car_with_shred(model_results, eps_car_data, days_before, days_afte
         print("Mean CAR plot saved to Plots/results/mean_car_analysis.png")
     
     plt.show()
+    
+    # Print summary statistics for the specific model type
+    print(f"\n" + "="*80)
+    print(f"{MODEL_TYPE.upper()} SUMMARY STATISTICS")
+    print("="*80)
+    
+    if len(model_mean_cars) > 0:
+        # Specific model type statistics
+        overall_mean_car = np.mean(model_mean_cars, axis=0)
+        overall_std_car = np.std(model_mean_cars, axis=0)
+        
+        pre_event_car = overall_mean_car[DAYS_BEFORE]
+        post_event_car = overall_mean_car[-1]
+        car_change = post_event_car - pre_event_car
+        
+        # Calculate average precision for this model type
+        avg_precision = calculate_average_precision_for_model_type(MODEL_TYPE)
+        
+        print(f"\n{MODEL_TYPE} Statistics ({len(model_mean_cars)} models):")
+        print(f"  Mean Pre-Event CAR (Day 0): {pre_event_car:.6f}")
+        print(f"  Mean Post-Event CAR (Final): {post_event_car:.6f}")
+        print(f"  Mean Total CAR Change: {car_change:.6f}")
+        if avg_precision is not None:
+            print(f"  Average Precision: {avg_precision:.3f}")
+        else:
+            print(f"  Average Precision: Not available")
+
+def plot_all_model_types_separate(eps_car_data, days_before, days_after, save_path=None):
+    """
+    Plot AVERAGE CAR for each model TYPE (heterognn, heterognn2, etc.) as separate lines.
+    
+    Args:
+        eps_car_data (list): List of CAR data for EPS surprises
+        days_before (int): Number of days before event
+        days_after (int): Number of days after event
+        save_path (str): Optional path to save the plot
+    """
+    print(f"\n" + "="*80)
+    print("GENERATING MODEL TYPE AVERAGES SEPARATE LINES PLOT")
+    print("="*80)
+    
+    # Get all model types from Results directory
+    results_base = "Results"
+    model_types = []
+    
+    if os.path.exists(results_base):
+        for item in os.listdir(results_base):
+            item_path = os.path.join(results_base, item)
+            if os.path.isdir(item_path):
+                model_types.append(item)
+    
+    print(f"Found model types: {model_types}")
+    
+    # Process each model type
+    model_type_results = {}
+    
+    for model_type in model_types:
+        print(f"\nProcessing {model_type}...")
+        model_type_path = os.path.join(results_base, model_type)
+        
+        # Get all subdirectories for this model type
+        model_dirs = []
+        for subitem in os.listdir(model_type_path):
+            subitem_path = os.path.join(model_type_path, subitem)
+            if os.path.isdir(subitem_path):
+                model_dirs.append(subitem_path)
+        
+        print(f"Found {len(model_dirs)} directories for {model_type}")
+        
+        # Process all directories for this model type
+        model_car_data_list = []
+        
+        for results_dir in model_dirs:
+            model_name, car_data_list, total_predictions = process_model_results_from_cache(results_dir, eps_car_data)
+            if model_name and car_data_list:
+                model_car_data_list.extend(car_data_list)
+        
+        if model_car_data_list:
+            model_type_results[model_type] = model_car_data_list
+            print(f"Successfully processed {len(model_car_data_list)} events for {model_type}")
+    
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(16, 10))
+    
+    # Set up the plot
+    relative_days = np.arange(-days_before, days_after + 1)
+    
+    # Define colors for different model types
+    colors = ['blue', 'green', 'red', 'purple', 'orange', 'brown', 'pink', 'gray']
+    
+    # Plot each model type AVERAGE as a separate line
+    for i, (model_type, car_data_list) in enumerate(model_type_results.items()):
+        if car_data_list:
+            # Get all individual model directories for this type
+            model_type_path = os.path.join(results_base, model_type)
+            model_dirs = []
+            for subitem in os.listdir(model_type_path):
+                subitem_path = os.path.join(model_type_path, subitem)
+                if os.path.isdir(subitem_path):
+                    model_dirs.append(subitem_path)
+            
+            # Calculate mean CAR for each individual model
+            individual_model_means = []
+            for results_dir in model_dirs:
+                model_name, car_data_list, total_predictions = process_model_results_from_cache(results_dir, eps_car_data)
+                if model_name and car_data_list:
+                    model_cars = [data['car'] for data in car_data_list if data is not None]
+                    if model_cars:
+                        # Calculate mean CAR for this individual model
+                        model_mean_car = np.mean(model_cars, axis=0)
+                        individual_model_means.append(model_mean_car)
+            
+            if individual_model_means:
+                # Calculate mean and std of the individual model means
+                individual_model_means = np.array(individual_model_means)
+                model_type_mean_car = np.mean(individual_model_means, axis=0)
+                model_type_std_car = np.std(individual_model_means, axis=0)
+                
+                # Calculate average precision for this model type
+                avg_precision = calculate_average_precision_for_model_type(model_type)
+                
+                color = colors[i % len(colors)]
+                
+                # Create legend label with precision
+                if avg_precision is not None:
+                    legend_label = r'$\text{' + model_type + r' Average CAR} \quad (N = ' + str(len(individual_model_means)) + r' \text{ models}, P = ' + f'{avg_precision:.3f}' + r')$'
+                else:
+                    legend_label = r'$\text{' + model_type + r' Average CAR} \quad (N = ' + str(len(individual_model_means)) + r' \text{ models})$'
+                
+                ax.plot(relative_days, model_type_mean_car, 
+                        label=legend_label, 
+                        color=color, linewidth=3, marker='o', markersize=6)
+                
+                # Add dotted lines for standard deviation
+                ax.plot(relative_days, model_type_mean_car + model_type_std_car, 
+                        color=color, linewidth=1, linestyle=':', alpha=0.7)
+                ax.plot(relative_days, model_type_mean_car - model_type_std_car, 
+                        color=color, linewidth=1, linestyle=':', alpha=0.7)
+    
+    # Add EPS surprises baseline if available
+    if eps_car_data:
+        eps_cars = [data['car'] for data in eps_car_data if data is not None]
+        if eps_cars:
+            avg_eps_car = np.mean(eps_cars, axis=0)
+            ax.plot(relative_days, avg_eps_car, 
+                    label=r'$\text{Positive EPS Surprises Average CAR} \quad (N = ' + str(len(eps_cars)) + r')$', 
+                    color='black', linewidth=3, marker='^', markersize=6, linestyle='--')
+    
+    # Add test set average CAR
+    test_avg_car, test_relative_days = calculate_test_set_average_car()
+    if test_avg_car is not None and test_relative_days is not None:
+        ax.plot(test_relative_days, test_avg_car, 
+                label=r'$\text{Test Set Average CAR} \quad (N = 191)$', 
+                color='cyan', linewidth=3, marker='d', markersize=6, linestyle=':')
+    
+    # Add vertical line at event date
+    ax.axvline(x=0, color='black', linestyle='--', alpha=0.7, label=r'$\text{Event Date} \quad (t = 0)$')
+    
+    # Add horizontal line at zero
+    ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+    
+    # Customize the plot
+    ax.set_xlabel(r'Days Relative to Event ($t$)', fontsize=12)
+    ax.set_ylabel(r'Cumulative Abnormal Returns (CAR)', fontsize=12)
+    ax.set_title(r"$\text{Model Type Averages - Separate Lines}$", fontsize=14)
+    ax.legend(fontsize=10, loc='best')
+    ax.grid(True, alpha=0.3)
+    
+    # Add shaded areas for different periods
+    ax.axvspan(0, MID_POINT_START, alpha=0.1, color='blue', label=r'$\text{Early Post-Event Period} \quad (0 \leq t < 15)$')
+    ax.axvspan(MID_POINT_START, days_after, alpha=0.1, color='green', label=r'$\text{Late Post-Event Period} \quad (15 \leq t \leq 40)$')
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Model type averages plot saved to {save_path}")
+    else:
+        plt.savefig("Plots/results/model_type_averages.png", dpi=300, bbox_inches='tight')
+        print("Model type averages plot saved to Plots/results/model_type_averages.png")
+    
+    plt.show()
+    
+    # Print summary statistics for each model type
+    print(f"\n" + "="*80)
+    print("MODEL TYPE AVERAGES SUMMARY STATISTICS")
+    print("="*80)
+    
+    for model_type, car_data_list in model_type_results.items():
+        if car_data_list:
+            # Get all individual model directories for this type
+            model_type_path = os.path.join(results_base, model_type)
+            model_dirs = []
+            for subitem in os.listdir(model_type_path):
+                subitem_path = os.path.join(model_type_path, subitem)
+                if os.path.isdir(subitem_path):
+                    model_dirs.append(subitem_path)
+            
+            # Calculate mean CAR for each individual model
+            individual_model_means = []
+            for results_dir in model_dirs:
+                model_name, car_data_list, total_predictions = process_model_results_from_cache(results_dir, eps_car_data)
+                if model_name and car_data_list:
+                    model_cars = [data['car'] for data in car_data_list if data is not None]
+                    if model_cars:
+                        # Calculate mean CAR for this individual model
+                        model_mean_car = np.mean(model_cars, axis=0)
+                        individual_model_means.append(model_mean_car)
+            
+            if individual_model_means:
+                # Calculate mean and std of the individual model means
+                individual_model_means = np.array(individual_model_means)
+                model_type_mean_car = np.mean(individual_model_means, axis=0)
+                
+                pre_event_car = model_type_mean_car[DAYS_BEFORE]
+                post_event_car = model_type_mean_car[-1]
+                car_change = post_event_car - pre_event_car
+                
+                # Calculate average precision for this model type
+                avg_precision = calculate_average_precision_for_model_type(model_type)
+                
+                print(f"\n{model_type} Statistics ({len(individual_model_means)} models):")
+                print(f"  Mean Pre-Event CAR (Day 0): {pre_event_car:.6f}")
+                print(f"  Mean Post-Event CAR (Final): {post_event_car:.6f}")
+                print(f"  Mean Total CAR Change: {car_change:.6f}")
+                if avg_precision is not None:
+                    print(f"  Average Precision: {avg_precision:.3f}")
+                else:
+                    print(f"  Average Precision: Not available")
+
+def calculate_average_precision_for_model_type(model_type):
+    """
+    Calculate average precision for all models of a given type.
+    
+    Args:
+        model_type (str): The model type (e.g., 'heterognn', 'heterognn2')
+    
+    Returns:
+        float: Average precision across all models of this type
+    """
+    
+    model_type_path = os.path.join("Results", model_type)
+    precisions = []
+    
+    if os.path.exists(model_type_path):
+        for subitem in os.listdir(model_type_path):
+            subitem_path = os.path.join(model_type_path, subitem)
+            if os.path.isdir(subitem_path):
+                results_file = os.path.join(subitem_path, "results.json")
+                if os.path.exists(results_file):
+                    try:
+                        with open(results_file, 'r') as f:
+                            results = json.load(f)
+                            if 'test_metrics' in results and 'precision' in results['test_metrics']:
+                                precisions.append(results['test_metrics']['precision'])
+                    except (json.JSONDecodeError, KeyError):
+                        continue
+    
+    if precisions:
+        return np.mean(precisions)
+    else:
+        return None
 
 def get_results_directories(results_base_dir="Results"):
     """
@@ -380,6 +702,9 @@ def main():
     print("="*80)
     
     plot_mean_car_with_shred(model_results, eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
+    
+    # Plot all model types separately
+    plot_all_model_types_separate(eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
     
     # Print summary statistics
     print(f"\n" + "="*80)

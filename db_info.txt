@@ -202,3 +202,6 @@ Link prediction algorithm
 
 Change the graphs to show CAR from day 15 too?? Ask GPT
 Get plots of average car for both architectures and on the same plot
+heterognn Struggled wigh higher learning rates?
+
+Ok, new architecture I want to try tomorrow is edges aren't bidirectional instead everything flows into the primary ticker - Secondary ticker->Fact->Primary Ticker

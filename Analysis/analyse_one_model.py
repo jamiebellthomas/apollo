@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Multi-Ticker CAR (Cumulative Abnormal Returns) Analysis Script
+Single Model CAR Analysis Script
 
-This script calculates and plots the Cumulative Abnormal Returns of multiple assets
-relative to the S&P 500 around a specific event date.
+This script analyzes CAR (Cumulative Abnormal Returns) for a single model's predictions
+against the positive EPS surprises baseline.
 
 Configure the parameters below and run the script.
 """
@@ -12,7 +12,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import yfinance as yf
 from datetime import datetime, timedelta
 import warnings
 import os
@@ -44,7 +43,7 @@ BENCHMARK_TICKER = "SPY"
 SAVE_PLOT_PATH = "Plots/results/"
 
 # Option 2: Results folder mode (reads from test_predictions.csv)
-RESULTS_FOLDER = "Results/seed=738503"  # Path to results folder
+RESULTS_FOLDER = "Results/heterognn/20250814_180548"  # Path to results folder
 PREDICTIONS_FILE = "test_predictions.csv"   # Name of predictions file
 
 # Option 3: EPS Surprises analysis
@@ -55,6 +54,54 @@ EPS_CAR_CACHE_FILE = "Data/eps_car_cache.csv"  # Cache file for EPS CAR data
 FORCE_RECALCULATE_EPS = False  # Set to True to force recalculation and update cache
 
 # =============================================================================
+
+def calculate_test_set_average_car(eps_car_cache_file="Data/eps_car_cache.csv", test_set_file="Data/test_set.csv"):
+    """
+    Calculate the average CAR for all instances in the test set.
+    
+    Args:
+        eps_car_cache_file (str): Path to EPS CAR cache file
+        test_set_file (str): Path to test set file
+    
+    Returns:
+        tuple: (average_car_values, relative_days) or (None, None) if error
+    """
+    try:
+        # Load test set
+        test_df = pd.read_csv(test_set_file)
+        print(f"Loaded test set with {len(test_df)} instances")
+        
+        # Load CAR cache
+        car_df = pd.read_csv(eps_car_cache_file)
+        print(f"Loaded CAR cache with {len(car_df)} records")
+        
+        # Create a key for matching (ticker + event_date)
+        test_df['key'] = test_df['Ticker'] + '_' + test_df['Reported_Date']
+        car_df['key'] = car_df['ticker'] + '_' + car_df['event_date']
+        
+        # Find matching records
+        matched_records = []
+        for _, test_row in test_df.iterrows():
+            key = test_row['key']
+            matching_car = car_df[car_df['key'] == key]
+            if len(matching_car) > 0:
+                car_values = np.array(eval(matching_car.iloc[0]['car_values']))
+                relative_days = np.array(eval(matching_car.iloc[0]['relative_days']))
+                matched_records.append(car_values)
+        
+        if len(matched_records) == 0:
+            print("No matching CAR records found for test set")
+            return None, None
+        
+        # Calculate average CAR
+        avg_car = np.mean(matched_records, axis=0)
+        print(f"Calculated average CAR for {len(matched_records)} test set instances")
+        
+        return avg_car, relative_days
+        
+    except Exception as e:
+        print(f"Error calculating test set average CAR: {e}")
+        return None, None
 
 def read_predictions_from_folder(results_folder, predictions_file="test_predictions.csv"):
     """
@@ -245,102 +292,6 @@ def load_car_data_from_cache(cache_file):
         print(f"Error loading cache: {e}")
         return None
 
-def calculate_returns(prices):
-    """Calculate daily returns from price data."""
-    return prices.pct_change().dropna()
-
-def fetch_stock_data(ticker, start_date, end_date):
-    """Fetch stock data using yfinance."""
-    try:
-        stock = yf.Ticker(ticker)
-        data = stock.history(start=start_date, end=end_date)
-        return data['Close']
-    except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
-        return None
-
-def calculate_car(ticker, main_date, days_before, days_after, benchmark_ticker="SPY"):
-    """
-    Calculate Cumulative Abnormal Returns for a single ticker.
-    
-    Args:
-        ticker (str): Stock ticker symbol
-        main_date (str): Main event date in YYYY-MM-DD format
-        days_before (int): Number of days before the event
-        days_after (int): Number of days after the event
-        benchmark_ticker (str): Benchmark ticker (default: SPY for S&P 500)
-    
-    Returns:
-        dict: Dictionary containing CAR data and metadata
-    """
-    # Convert main_date to datetime (timezone-naive)
-    main_dt = pd.to_datetime(main_date).tz_localize(None)
-    
-    # Calculate date range
-    start_date = main_dt - timedelta(days=days_before + 60)  # Extra days for estimation
-    end_date = main_dt + timedelta(days=days_after + 60)
-    
-    # Fetch data
-    stock_data = fetch_stock_data(ticker, start_date, end_date)
-    benchmark_data = fetch_stock_data(benchmark_ticker, start_date, end_date)
-    
-    if stock_data is None or benchmark_data is None:
-        return None
-    
-    # Align data and make timezone-naive
-    aligned_data = pd.DataFrame({
-        'stock': stock_data,
-        'benchmark': benchmark_data
-    }).dropna()
-    
-    # Convert index to timezone-naive if it has timezone info
-    if aligned_data.index.tz is not None:
-        aligned_data.index = aligned_data.index.tz_localize(None)
-    
-    if len(aligned_data) < days_before + days_after + 10:
-        print(f"Insufficient data for {ticker}")
-        return None
-    
-    # Calculate log returns (matching DataAssembly methodology)
-    aligned_data['stock_returns'] = np.log(aligned_data['stock'] / aligned_data['stock'].shift(1))
-    aligned_data['benchmark_returns'] = np.log(aligned_data['benchmark'] / aligned_data['benchmark'].shift(1))
-    aligned_data = aligned_data.dropna()
-    
-    # Find event index
-    event_idx = None
-    for i, date in enumerate(aligned_data.index):
-        if date >= main_dt:
-            event_idx = i
-            break
-    
-    if event_idx is None or event_idx < days_before or event_idx + days_after >= len(aligned_data):
-        print(f"Event date not found or insufficient data around event for {ticker}")
-        return None
-    
-    # Extract event window
-    event_start = event_idx - days_before
-    event_end = event_idx + days_after + 1
-    event_data = aligned_data.iloc[event_start:event_end].copy()
-    
-    # Calculate abnormal returns: r_ticker - r_spy (simple difference, no market model)
-    event_data['abnormal_returns'] = event_data['stock_returns'] - event_data['benchmark_returns']
-    
-    # Calculate CAR (cumulative sum of abnormal returns)
-    event_data['car'] = event_data['abnormal_returns'].cumsum()
-    
-    # Create relative day index
-    relative_days = np.arange(-days_before, days_after + 1)
-    
-    return {
-        'ticker': ticker,
-        'relative_days': relative_days,
-        'car': event_data['car'].values,
-        'abnormal_returns': event_data['abnormal_returns'].values,
-        'alpha': 0.0,  # Not used in simple abnormal return method
-        'beta': 1.0,   # Not used in simple abnormal return method
-        'event_date': main_date
-    }
-
 def plot_multi_ticker_car(car_data_list, days_before, days_after, save_path=None, dataset_name="Events"):
     """
     Plot CAR for multiple tickers on the same graph, including average CAR.
@@ -389,6 +340,15 @@ def plot_multi_ticker_car(car_data_list, days_before, days_after, save_path=None
                 linewidth=3, marker='s', markersize=6)
         line_objects.append(line)
         line_labels.append(f"{dataset_name} Average CAR (N = {len(all_car_data)})")
+    
+    # Add test set average CAR
+    test_avg_car, test_relative_days = calculate_test_set_average_car()
+    if test_avg_car is not None and test_relative_days is not None:
+        line, = ax.plot(test_relative_days, test_avg_car, 
+                label=r'$\text{Test Set Average CAR} \quad (N = 191)$', 
+                color='red', linewidth=3, linestyle='--', marker='^', markersize=6)
+        line_objects.append(line)
+        line_labels.append(f"Test Set Average CAR (N = 191)")
     
     # Add vertical line at event date
     ax.axvline(x=0, color='red', linestyle='--', alpha=0.7, label=r'$\text{Event Date} \quad (t = 0)$')
@@ -476,6 +436,15 @@ def plot_combined_car_analysis(predictions_car_data, eps_car_data, days_before, 
                     color='green', linewidth=4, marker='o', markersize=8)
             line_objects.append(line)
             line_labels.append(f"Positive EPS Surprises Average CAR (N = {len(eps_cars)})")
+    
+    # Add test set average CAR
+    test_avg_car, test_relative_days = calculate_test_set_average_car()
+    if test_avg_car is not None and test_relative_days is not None:
+        line, = ax.plot(test_relative_days, test_avg_car, 
+                label=r'$\text{Test Set Average CAR} \quad (N = 191)$', 
+                color='red', linewidth=4, linestyle='--', marker='^', markersize=8)
+        line_objects.append(line)
+        line_labels.append(f"Test Set Average CAR (N = 191)")
     
     # Add vertical line at event date
     ax.axvline(x=0, color='red', linestyle='--', alpha=0.7, label=r'$\text{Event Date} \quad (t = 0)$')
@@ -577,31 +546,43 @@ def main():
     """Main function to run the CAR analysis."""
     
     if MANUAL_MODE:
-        # Manual mode - use configured parameters
+        # Manual mode - use specific tickers and date
         print(f"Running in MANUAL MODE")
-        print(f"Calculating CAR for {len(TICKERS)} tickers...")
+        print(f"Looking up CAR for {len(TICKERS)} tickers...")
         print(f"Event date: {MAIN_DATE}")
         print(f"Analysis window: {DAYS_BEFORE} days before to {DAYS_AFTER} days after")
         print(f"Benchmark: {BENCHMARK_TICKER}")
         print(f"Tickers: {', '.join(TICKERS)}")
         
-        # Calculate CAR for each ticker
+        # Load cached data
+        eps_car_data = load_car_data_from_cache(EPS_CAR_CACHE_FILE)
+        if eps_car_data is None:
+            print("Error: CAR cache not available. Please ensure eps_car_cache.csv exists.")
+            return
+        
+        # Look up CAR for each ticker in cached data
         car_data_list = []
         for ticker in TICKERS:
-            print(f"\nProcessing {ticker}...")
-            car_data = calculate_car(ticker, MAIN_DATE, DAYS_BEFORE, DAYS_AFTER, BENCHMARK_TICKER)
-            car_data_list.append(car_data)
+            print(f"\nLooking up {ticker}...")
             
-            if car_data is not None:
-                print(f"✓ Successfully calculated CAR for {ticker}")
-            else:
-                print(f"✗ Failed to calculate CAR for {ticker}")
+            # Find matching event in cached data
+            found = False
+            for cached_event in eps_car_data:
+                if (cached_event['ticker'] == ticker and 
+                    cached_event['event_date'] == MAIN_DATE):
+                    car_data_list.append(cached_event)
+                    found = True
+                    print(f"✓ Found cached CAR data for {ticker}")
+                    break
+            
+            if not found:
+                print(f"✗ Could not find cached data for {ticker} on {MAIN_DATE}")
         
         # Filter out None values
         valid_car_data = [data for data in car_data_list if data is not None]
         
         if not valid_car_data:
-            print("\nNo valid CAR data could be calculated for any ticker.")
+            print("\nNo valid CAR data could be found for any ticker.")
             return
         
         # Print summary
@@ -625,7 +606,7 @@ def main():
         print(f"Analysis window: {DAYS_BEFORE} days before to {DAYS_AFTER} days after")
         print(f"Benchmark: {BENCHMARK_TICKER}")
         
-        # Calculate CAR for each event using cached data if available
+        # Initialize variables for results
         all_car_data = []
         successful_events = 0
         
@@ -634,41 +615,29 @@ def main():
         if not FORCE_RECALCULATE_EPS:
             eps_car_data = load_car_data_from_cache(EPS_CAR_CACHE_FILE)
         
-        if eps_car_data is not None:
-            # Use cached data for model predictions
-            print("Using cached EPS data for model predictions...")
-            
-            for ticker, reported_date in events:
-                # Find matching event in cached data
-                found = False
-                for cached_event in eps_car_data:
-                    if (cached_event['ticker'] == ticker and 
-                        cached_event['event_date'] == reported_date):
-                        all_car_data.append(cached_event)
-                        successful_events += 1
-                        found = True
-                        break
-                
-                if not found:
-                    print(f"Warning: Could not find cached data for {ticker} on {reported_date}")
-        else:
-            # Fallback to original calculation method
-            print("Cache not available, calculating CAR for each event...")
-            
-            for i, (ticker, reported_date) in enumerate(events):
-                print(f"\nProcessing event {i+1}/{len(events)}: {ticker} on {reported_date}...")
-                
-                car_data = calculate_car(ticker, reported_date, DAYS_BEFORE, DAYS_AFTER, BENCHMARK_TICKER)
-                
-                if car_data is not None:
-                    all_car_data.append(car_data)
+        if eps_car_data is None:
+            print("Error: CAR cache not available. Please ensure eps_car_cache.csv exists.")
+            return
+        
+        # Use cached data for model predictions
+        print("Using cached EPS data for model predictions...")
+        
+        for ticker, reported_date in events:
+            # Find matching event in cached data
+            found = False
+            for cached_event in eps_car_data:
+                if (cached_event['ticker'] == ticker and 
+                    cached_event['event_date'] == reported_date):
+                    all_car_data.append(cached_event)
                     successful_events += 1
-                    print(f"✓ Successfully calculated CAR for {ticker}")
-                else:
-                    print(f"✗ Failed to calculate CAR for {ticker}")
+                    found = True
+                    break
+            
+            if not found:
+                print(f"Warning: Could not find cached data for {ticker} on {reported_date}")
         
         if not all_car_data:
-            print("\nNo valid CAR data could be calculated for any events.")
+            print("\nNo valid CAR data could be found for any events.")
             return
         
         print(f"\nSuccessfully processed {successful_events}/{len(events)} events")
@@ -686,64 +655,18 @@ def main():
             print("EPS SURPRISES ANALYSIS")
             print("="*80)
             
-            # Try to load from cache first
-            eps_car_data = None
-            if not FORCE_RECALCULATE_EPS:
-                eps_car_data = load_car_data_from_cache(EPS_CAR_CACHE_FILE)
-            
-            if eps_car_data is None:
-                # Cache not available or force recalculation - read EPS surprises file
-                eps_events = read_eps_surprises_from_file(EPS_SURPRISES_FILE)
-                
-                if eps_events:
-                    print(f"Analysis window: {DAYS_BEFORE} days before to {DAYS_AFTER} days after")
-                    print(f"Benchmark: {BENCHMARK_TICKER}")
-                    
-                    # Calculate CAR for each EPS event
-                    eps_car_data = []
-                    successful_eps_events = 0
-                    
-                    # Use configurable sample size
-                    if EPS_SAMPLE_SIZE is None:
-                        sample_size = len(eps_events)
-                        eps_events_sample = eps_events
-                    else:
-                        sample_size = min(EPS_SAMPLE_SIZE, len(eps_events))
-                        eps_events_sample = eps_events[:sample_size]
-                    
-                    print(f"Processing sample of {sample_size} EPS events (out of {len(eps_events)} total)...")
-                    
-                    for i, (ticker, reported_date) in enumerate(eps_events_sample):
-                        if i % 10 == 0:  # Progress indicator every 10 events
-                            print(f"Processing EPS event {i+1}/{sample_size}: {ticker} on {reported_date}...")
-                        
-                        car_data = calculate_car(ticker, reported_date, DAYS_BEFORE, DAYS_AFTER, BENCHMARK_TICKER)
-                        
-                        if car_data is not None:
-                            eps_car_data.append(car_data)
-                            successful_eps_events += 1
-                        else:
-                            print(f"✗ Failed to calculate CAR for {ticker}")
-                    
-                    if eps_car_data:
-                        print(f"\nSuccessfully processed {successful_eps_events}/{sample_size} EPS events")
-                        
-                        # Save to cache for future runs
-                        save_car_data_to_cache(eps_car_data, EPS_CAR_CACHE_FILE)
-                    else:
-                        print("\nNo valid CAR data could be calculated for any EPS events.")
-                        eps_car_data = []
-                else:
-                    print("No EPS events found.")
-                    eps_car_data = []
-            
+            # Use the same cached data for EPS analysis
             if eps_car_data:
+                print(f"Using cached EPS data with {len(eps_car_data)} events")
+                
                 # Print EPS summary
                 print_car_summary(eps_car_data, DAYS_BEFORE)
                 
                 # Second plot: Comparison of averages only
                 print(f"\nDEBUG: Plotting comparison of averages (second plot)")
                 plot_combined_car_analysis(all_car_data, eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
+            else:
+                print("No cached EPS data available for comparison.")
 
 if __name__ == "__main__":
     main() 
