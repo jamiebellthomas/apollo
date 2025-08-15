@@ -181,8 +181,8 @@ class SubGraphDataLoader:
         shuffled_items = all_items.copy()
         random.shuffle(shuffled_items)
         
-        # Split into training and testing
-        n_train_val = int(len(shuffled_items) * (self.train_ratio + self.val_ratio))
+        # Split into training and testing - use 0.85 for training (leaving 0.15 for testing)
+        n_train_val = int(len(shuffled_items) * 0.85)
         
         self.training_items = shuffled_items[:n_train_val]
         self.testing_items = shuffled_items[n_train_val:]

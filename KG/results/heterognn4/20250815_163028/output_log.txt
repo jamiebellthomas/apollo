@@ -1,0 +1,320 @@
+2025-08-15 16:30:28,738 - INFO - ============================================================
+2025-08-15 16:30:28,738 - INFO - EXPERIMENT START
+2025-08-15 16:30:28,738 - INFO - ============================================================
+2025-08-15 16:30:28,738 - INFO - Model Type: heterognn4
+2025-08-15 16:30:28,738 - INFO - Experiment directory: results/heterognn4/20250815_163028
+2025-08-15 16:30:28,738 - INFO - Hyperparameters saved to results/heterognn4/20250815_163028/hyperparameters.txt
+2025-08-15 16:30:29,570 - INFO - Data split info saved to results/heterognn4/20250815_163028/data_split.json
+2025-08-15 16:30:29,570 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:29,745 - INFO - ============================================================
+2025-08-15 16:30:29,745 - INFO - EXPERIMENT START
+2025-08-15 16:30:29,745 - INFO - ============================================================
+2025-08-15 16:30:29,745 - INFO - Model Type: heterognn4
+2025-08-15 16:30:29,745 - INFO - Experiment directory: results/heterognn4/20250815_163029
+2025-08-15 16:30:29,746 - INFO - Hyperparameters saved to results/heterognn4/20250815_163029/hyperparameters.txt
+2025-08-15 16:30:30,610 - INFO - Data split info saved to results/heterognn4/20250815_163029/data_split.json
+2025-08-15 16:30:30,610 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:30,739 - INFO - ============================================================
+2025-08-15 16:30:30,739 - INFO - EXPERIMENT START
+2025-08-15 16:30:30,739 - INFO - ============================================================
+2025-08-15 16:30:30,739 - INFO - Model Type: heterognn4
+2025-08-15 16:30:30,739 - INFO - Experiment directory: results/heterognn4/20250815_163030
+2025-08-15 16:30:30,739 - INFO - Hyperparameters saved to results/heterognn4/20250815_163030/hyperparameters.txt
+2025-08-15 16:30:31,490 - INFO - Data split info saved to results/heterognn4/20250815_163030/data_split.json
+2025-08-15 16:30:31,490 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:31,626 - INFO - ============================================================
+2025-08-15 16:30:31,626 - INFO - EXPERIMENT START
+2025-08-15 16:30:31,626 - INFO - ============================================================
+2025-08-15 16:30:31,626 - INFO - Model Type: heterognn4
+2025-08-15 16:30:31,626 - INFO - Experiment directory: results/heterognn4/20250815_163031
+2025-08-15 16:30:31,626 - INFO - Hyperparameters saved to results/heterognn4/20250815_163031/hyperparameters.txt
+2025-08-15 16:30:32,284 - INFO - Data split info saved to results/heterognn4/20250815_163031/data_split.json
+2025-08-15 16:30:32,284 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:32,419 - INFO - ============================================================
+2025-08-15 16:30:32,419 - INFO - EXPERIMENT START
+2025-08-15 16:30:32,419 - INFO - ============================================================
+2025-08-15 16:30:32,419 - INFO - Model Type: heterognn4
+2025-08-15 16:30:32,419 - INFO - Experiment directory: results/heterognn4/20250815_163032
+2025-08-15 16:30:32,419 - INFO - Hyperparameters saved to results/heterognn4/20250815_163032/hyperparameters.txt
+2025-08-15 16:30:33,092 - INFO - Data split info saved to results/heterognn4/20250815_163032/data_split.json
+2025-08-15 16:30:33,092 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:33,253 - INFO - ============================================================
+2025-08-15 16:30:33,253 - INFO - EXPERIMENT START
+2025-08-15 16:30:33,253 - INFO - ============================================================
+2025-08-15 16:30:33,253 - INFO - Model Type: heterognn4
+2025-08-15 16:30:33,253 - INFO - Experiment directory: results/heterognn4/20250815_163033
+2025-08-15 16:30:33,253 - INFO - Hyperparameters saved to results/heterognn4/20250815_163033/hyperparameters.txt
+2025-08-15 16:30:34,018 - INFO - Data split info saved to results/heterognn4/20250815_163033/data_split.json
+2025-08-15 16:30:34,018 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:34,178 - INFO - ============================================================
+2025-08-15 16:30:34,178 - INFO - EXPERIMENT START
+2025-08-15 16:30:34,178 - INFO - ============================================================
+2025-08-15 16:30:34,178 - INFO - Model Type: heterognn4
+2025-08-15 16:30:34,179 - INFO - Experiment directory: results/heterognn4/20250815_163034
+2025-08-15 16:30:34,179 - INFO - Hyperparameters saved to results/heterognn4/20250815_163034/hyperparameters.txt
+2025-08-15 16:30:34,874 - INFO - Data split info saved to results/heterognn4/20250815_163034/data_split.json
+2025-08-15 16:30:34,874 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:35,025 - INFO - ============================================================
+2025-08-15 16:30:35,025 - INFO - EXPERIMENT START
+2025-08-15 16:30:35,025 - INFO - ============================================================
+2025-08-15 16:30:35,025 - INFO - Model Type: heterognn4
+2025-08-15 16:30:35,025 - INFO - Experiment directory: results/heterognn4/20250815_163035
+2025-08-15 16:30:35,026 - INFO - Hyperparameters saved to results/heterognn4/20250815_163035/hyperparameters.txt
+2025-08-15 16:30:35,771 - INFO - Data split info saved to results/heterognn4/20250815_163035/data_split.json
+2025-08-15 16:30:35,771 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:35,906 - INFO - ============================================================
+2025-08-15 16:30:35,906 - INFO - EXPERIMENT START
+2025-08-15 16:30:35,906 - INFO - ============================================================
+2025-08-15 16:30:35,906 - INFO - Model Type: heterognn4
+2025-08-15 16:30:35,906 - INFO - Experiment directory: results/heterognn4/20250815_163035
+2025-08-15 16:30:35,906 - INFO - Hyperparameters saved to results/heterognn4/20250815_163035/hyperparameters.txt
+2025-08-15 16:30:36,581 - INFO - Data split info saved to results/heterognn4/20250815_163035/data_split.json
+2025-08-15 16:30:36,581 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:36,728 - INFO - ============================================================
+2025-08-15 16:30:36,728 - INFO - EXPERIMENT START
+2025-08-15 16:30:36,728 - INFO - ============================================================
+2025-08-15 16:30:36,728 - INFO - Model Type: heterognn4
+2025-08-15 16:30:36,728 - INFO - Experiment directory: results/heterognn4/20250815_163036
+2025-08-15 16:30:36,728 - INFO - Hyperparameters saved to results/heterognn4/20250815_163036/hyperparameters.txt
+2025-08-15 16:30:37,579 - INFO - Data split info saved to results/heterognn4/20250815_163036/data_split.json
+2025-08-15 16:30:37,579 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:37,712 - INFO - ============================================================
+2025-08-15 16:30:37,712 - INFO - EXPERIMENT START
+2025-08-15 16:30:37,712 - INFO - ============================================================
+2025-08-15 16:30:37,712 - INFO - Model Type: heterognn4
+2025-08-15 16:30:37,712 - INFO - Experiment directory: results/heterognn4/20250815_163037
+2025-08-15 16:30:37,712 - INFO - Hyperparameters saved to results/heterognn4/20250815_163037/hyperparameters.txt
+2025-08-15 16:30:38,434 - INFO - Data split info saved to results/heterognn4/20250815_163037/data_split.json
+2025-08-15 16:30:38,434 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:38,569 - INFO - ============================================================
+2025-08-15 16:30:38,569 - INFO - EXPERIMENT START
+2025-08-15 16:30:38,569 - INFO - ============================================================
+2025-08-15 16:30:38,569 - INFO - Model Type: heterognn4
+2025-08-15 16:30:38,569 - INFO - Experiment directory: results/heterognn4/20250815_163038
+2025-08-15 16:30:38,569 - INFO - Hyperparameters saved to results/heterognn4/20250815_163038/hyperparameters.txt
+2025-08-15 16:30:39,332 - INFO - Data split info saved to results/heterognn4/20250815_163038/data_split.json
+2025-08-15 16:30:39,332 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:39,469 - INFO - ============================================================
+2025-08-15 16:30:39,469 - INFO - EXPERIMENT START
+2025-08-15 16:30:39,469 - INFO - ============================================================
+2025-08-15 16:30:39,469 - INFO - Model Type: heterognn4
+2025-08-15 16:30:39,469 - INFO - Experiment directory: results/heterognn4/20250815_163039
+2025-08-15 16:30:39,469 - INFO - Hyperparameters saved to results/heterognn4/20250815_163039/hyperparameters.txt
+2025-08-15 16:30:40,164 - INFO - Data split info saved to results/heterognn4/20250815_163039/data_split.json
+2025-08-15 16:30:40,164 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:40,299 - INFO - ============================================================
+2025-08-15 16:30:40,300 - INFO - EXPERIMENT START
+2025-08-15 16:30:40,300 - INFO - ============================================================
+2025-08-15 16:30:40,300 - INFO - Model Type: heterognn4
+2025-08-15 16:30:40,300 - INFO - Experiment directory: results/heterognn4/20250815_163040
+2025-08-15 16:30:40,300 - INFO - Hyperparameters saved to results/heterognn4/20250815_163040/hyperparameters.txt
+2025-08-15 16:30:41,396 - INFO - Data split info saved to results/heterognn4/20250815_163040/data_split.json
+2025-08-15 16:30:41,397 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:41,562 - INFO - ============================================================
+2025-08-15 16:30:41,562 - INFO - EXPERIMENT START
+2025-08-15 16:30:41,562 - INFO - ============================================================
+2025-08-15 16:30:41,562 - INFO - Model Type: heterognn4
+2025-08-15 16:30:41,562 - INFO - Experiment directory: results/heterognn4/20250815_163041
+2025-08-15 16:30:41,563 - INFO - Hyperparameters saved to results/heterognn4/20250815_163041/hyperparameters.txt
+2025-08-15 16:30:42,430 - INFO - Data split info saved to results/heterognn4/20250815_163041/data_split.json
+2025-08-15 16:30:42,430 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:42,649 - INFO - ============================================================
+2025-08-15 16:30:42,649 - INFO - EXPERIMENT START
+2025-08-15 16:30:42,649 - INFO - ============================================================
+2025-08-15 16:30:42,649 - INFO - Model Type: heterognn4
+2025-08-15 16:30:42,649 - INFO - Experiment directory: results/heterognn4/20250815_163042
+2025-08-15 16:30:42,650 - INFO - Hyperparameters saved to results/heterognn4/20250815_163042/hyperparameters.txt
+2025-08-15 16:30:43,524 - INFO - Data split info saved to results/heterognn4/20250815_163042/data_split.json
+2025-08-15 16:30:43,524 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:43,704 - INFO - ============================================================
+2025-08-15 16:30:43,704 - INFO - EXPERIMENT START
+2025-08-15 16:30:43,704 - INFO - ============================================================
+2025-08-15 16:30:43,704 - INFO - Model Type: heterognn4
+2025-08-15 16:30:43,704 - INFO - Experiment directory: results/heterognn4/20250815_163043
+2025-08-15 16:30:43,704 - INFO - Hyperparameters saved to results/heterognn4/20250815_163043/hyperparameters.txt
+2025-08-15 16:30:44,450 - INFO - Data split info saved to results/heterognn4/20250815_163043/data_split.json
+2025-08-15 16:30:44,451 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:44,599 - INFO - ============================================================
+2025-08-15 16:30:44,599 - INFO - EXPERIMENT START
+2025-08-15 16:30:44,599 - INFO - ============================================================
+2025-08-15 16:30:44,599 - INFO - Model Type: heterognn4
+2025-08-15 16:30:44,599 - INFO - Experiment directory: results/heterognn4/20250815_163044
+2025-08-15 16:30:44,599 - INFO - Hyperparameters saved to results/heterognn4/20250815_163044/hyperparameters.txt
+2025-08-15 16:30:45,358 - INFO - Data split info saved to results/heterognn4/20250815_163044/data_split.json
+2025-08-15 16:30:45,358 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:45,506 - INFO - ============================================================
+2025-08-15 16:30:45,507 - INFO - EXPERIMENT START
+2025-08-15 16:30:45,507 - INFO - ============================================================
+2025-08-15 16:30:45,507 - INFO - Model Type: heterognn4
+2025-08-15 16:30:45,507 - INFO - Experiment directory: results/heterognn4/20250815_163045
+2025-08-15 16:30:45,507 - INFO - Hyperparameters saved to results/heterognn4/20250815_163045/hyperparameters.txt
+2025-08-15 16:30:46,197 - INFO - Data split info saved to results/heterognn4/20250815_163045/data_split.json
+2025-08-15 16:30:46,197 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:46,332 - INFO - ============================================================
+2025-08-15 16:30:46,332 - INFO - EXPERIMENT START
+2025-08-15 16:30:46,332 - INFO - ============================================================
+2025-08-15 16:30:46,332 - INFO - Model Type: heterognn4
+2025-08-15 16:30:46,332 - INFO - Experiment directory: results/heterognn4/20250815_163046
+2025-08-15 16:30:46,332 - INFO - Hyperparameters saved to results/heterognn4/20250815_163046/hyperparameters.txt
+2025-08-15 16:30:47,069 - INFO - Data split info saved to results/heterognn4/20250815_163046/data_split.json
+2025-08-15 16:30:47,069 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:47,213 - INFO - ============================================================
+2025-08-15 16:30:47,213 - INFO - EXPERIMENT START
+2025-08-15 16:30:47,213 - INFO - ============================================================
+2025-08-15 16:30:47,213 - INFO - Model Type: heterognn4
+2025-08-15 16:30:47,213 - INFO - Experiment directory: results/heterognn4/20250815_163047
+2025-08-15 16:30:47,213 - INFO - Hyperparameters saved to results/heterognn4/20250815_163047/hyperparameters.txt
+2025-08-15 16:30:47,909 - INFO - Data split info saved to results/heterognn4/20250815_163047/data_split.json
+2025-08-15 16:30:47,909 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:48,081 - INFO - ============================================================
+2025-08-15 16:30:48,081 - INFO - EXPERIMENT START
+2025-08-15 16:30:48,081 - INFO - ============================================================
+2025-08-15 16:30:48,081 - INFO - Model Type: heterognn4
+2025-08-15 16:30:48,081 - INFO - Experiment directory: results/heterognn4/20250815_163048
+2025-08-15 16:30:48,081 - INFO - Hyperparameters saved to results/heterognn4/20250815_163048/hyperparameters.txt
+2025-08-15 16:30:48,875 - INFO - Data split info saved to results/heterognn4/20250815_163048/data_split.json
+2025-08-15 16:30:48,875 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:49,014 - INFO - ============================================================
+2025-08-15 16:30:49,015 - INFO - EXPERIMENT START
+2025-08-15 16:30:49,015 - INFO - ============================================================
+2025-08-15 16:30:49,015 - INFO - Model Type: heterognn4
+2025-08-15 16:30:49,015 - INFO - Experiment directory: results/heterognn4/20250815_163049
+2025-08-15 16:30:49,015 - INFO - Hyperparameters saved to results/heterognn4/20250815_163049/hyperparameters.txt
+2025-08-15 16:30:49,671 - INFO - Data split info saved to results/heterognn4/20250815_163049/data_split.json
+2025-08-15 16:30:49,671 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:49,833 - INFO - ============================================================
+2025-08-15 16:30:49,833 - INFO - EXPERIMENT START
+2025-08-15 16:30:49,833 - INFO - ============================================================
+2025-08-15 16:30:49,833 - INFO - Model Type: heterognn4
+2025-08-15 16:30:49,833 - INFO - Experiment directory: results/heterognn4/20250815_163049
+2025-08-15 16:30:49,834 - INFO - Hyperparameters saved to results/heterognn4/20250815_163049/hyperparameters.txt
+2025-08-15 16:30:50,594 - INFO - Data split info saved to results/heterognn4/20250815_163049/data_split.json
+2025-08-15 16:30:50,594 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:50,748 - INFO - ============================================================
+2025-08-15 16:30:50,749 - INFO - EXPERIMENT START
+2025-08-15 16:30:50,749 - INFO - ============================================================
+2025-08-15 16:30:50,749 - INFO - Model Type: heterognn4
+2025-08-15 16:30:50,749 - INFO - Experiment directory: results/heterognn4/20250815_163050
+2025-08-15 16:30:50,749 - INFO - Hyperparameters saved to results/heterognn4/20250815_163050/hyperparameters.txt
+2025-08-15 16:30:51,432 - INFO - Data split info saved to results/heterognn4/20250815_163050/data_split.json
+2025-08-15 16:30:51,432 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:51,572 - INFO - ============================================================
+2025-08-15 16:30:51,572 - INFO - EXPERIMENT START
+2025-08-15 16:30:51,572 - INFO - ============================================================
+2025-08-15 16:30:51,572 - INFO - Model Type: heterognn4
+2025-08-15 16:30:51,572 - INFO - Experiment directory: results/heterognn4/20250815_163051
+2025-08-15 16:30:51,572 - INFO - Hyperparameters saved to results/heterognn4/20250815_163051/hyperparameters.txt
+2025-08-15 16:30:52,313 - INFO - Data split info saved to results/heterognn4/20250815_163051/data_split.json
+2025-08-15 16:30:52,313 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:52,445 - INFO - ============================================================
+2025-08-15 16:30:52,445 - INFO - EXPERIMENT START
+2025-08-15 16:30:52,445 - INFO - ============================================================
+2025-08-15 16:30:52,445 - INFO - Model Type: heterognn4
+2025-08-15 16:30:52,445 - INFO - Experiment directory: results/heterognn4/20250815_163052
+2025-08-15 16:30:52,445 - INFO - Hyperparameters saved to results/heterognn4/20250815_163052/hyperparameters.txt
+2025-08-15 16:30:53,097 - INFO - Data split info saved to results/heterognn4/20250815_163052/data_split.json
+2025-08-15 16:30:53,097 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:53,238 - INFO - ============================================================
+2025-08-15 16:30:53,238 - INFO - EXPERIMENT START
+2025-08-15 16:30:53,238 - INFO - ============================================================
+2025-08-15 16:30:53,238 - INFO - Model Type: heterognn4
+2025-08-15 16:30:53,238 - INFO - Experiment directory: results/heterognn4/20250815_163053
+2025-08-15 16:30:53,238 - INFO - Hyperparameters saved to results/heterognn4/20250815_163053/hyperparameters.txt
+2025-08-15 16:30:53,971 - INFO - Data split info saved to results/heterognn4/20250815_163053/data_split.json
+2025-08-15 16:30:53,971 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:54,095 - INFO - ============================================================
+2025-08-15 16:30:54,095 - INFO - EXPERIMENT START
+2025-08-15 16:30:54,095 - INFO - ============================================================
+2025-08-15 16:30:54,096 - INFO - Model Type: heterognn4
+2025-08-15 16:30:54,096 - INFO - Experiment directory: results/heterognn4/20250815_163054
+2025-08-15 16:30:54,096 - INFO - Hyperparameters saved to results/heterognn4/20250815_163054/hyperparameters.txt
+2025-08-15 16:30:54,743 - INFO - Data split info saved to results/heterognn4/20250815_163054/data_split.json
+2025-08-15 16:30:54,743 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:54,885 - INFO - ============================================================
+2025-08-15 16:30:54,886 - INFO - EXPERIMENT START
+2025-08-15 16:30:54,886 - INFO - ============================================================
+2025-08-15 16:30:54,886 - INFO - Model Type: heterognn4
+2025-08-15 16:30:54,886 - INFO - Experiment directory: results/heterognn4/20250815_163054
+2025-08-15 16:30:54,886 - INFO - Hyperparameters saved to results/heterognn4/20250815_163054/hyperparameters.txt
+2025-08-15 16:30:55,608 - INFO - Data split info saved to results/heterognn4/20250815_163054/data_split.json
+2025-08-15 16:30:55,608 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:55,739 - INFO - ============================================================
+2025-08-15 16:30:55,739 - INFO - EXPERIMENT START
+2025-08-15 16:30:55,739 - INFO - ============================================================
+2025-08-15 16:30:55,739 - INFO - Model Type: heterognn4
+2025-08-15 16:30:55,739 - INFO - Experiment directory: results/heterognn4/20250815_163055
+2025-08-15 16:30:55,740 - INFO - Hyperparameters saved to results/heterognn4/20250815_163055/hyperparameters.txt
+2025-08-15 16:30:56,394 - INFO - Data split info saved to results/heterognn4/20250815_163055/data_split.json
+2025-08-15 16:30:56,394 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:56,524 - INFO - ============================================================
+2025-08-15 16:30:56,525 - INFO - EXPERIMENT START
+2025-08-15 16:30:56,525 - INFO - ============================================================
+2025-08-15 16:30:56,525 - INFO - Model Type: heterognn4
+2025-08-15 16:30:56,525 - INFO - Experiment directory: results/heterognn4/20250815_163056
+2025-08-15 16:30:56,525 - INFO - Hyperparameters saved to results/heterognn4/20250815_163056/hyperparameters.txt
+2025-08-15 16:30:57,265 - INFO - Data split info saved to results/heterognn4/20250815_163056/data_split.json
+2025-08-15 16:30:57,265 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:57,429 - INFO - ============================================================
+2025-08-15 16:30:57,429 - INFO - EXPERIMENT START
+2025-08-15 16:30:57,429 - INFO - ============================================================
+2025-08-15 16:30:57,429 - INFO - Model Type: heterognn4
+2025-08-15 16:30:57,429 - INFO - Experiment directory: results/heterognn4/20250815_163057
+2025-08-15 16:30:57,429 - INFO - Hyperparameters saved to results/heterognn4/20250815_163057/hyperparameters.txt
+2025-08-15 16:30:58,126 - INFO - Data split info saved to results/heterognn4/20250815_163057/data_split.json
+2025-08-15 16:30:58,126 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:58,306 - INFO - ============================================================
+2025-08-15 16:30:58,306 - INFO - EXPERIMENT START
+2025-08-15 16:30:58,306 - INFO - ============================================================
+2025-08-15 16:30:58,306 - INFO - Model Type: heterognn4
+2025-08-15 16:30:58,306 - INFO - Experiment directory: results/heterognn4/20250815_163058
+2025-08-15 16:30:58,306 - INFO - Hyperparameters saved to results/heterognn4/20250815_163058/hyperparameters.txt
+2025-08-15 16:30:59,082 - INFO - Data split info saved to results/heterognn4/20250815_163058/data_split.json
+2025-08-15 16:30:59,082 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:30:59,237 - INFO - ============================================================
+2025-08-15 16:30:59,237 - INFO - EXPERIMENT START
+2025-08-15 16:30:59,237 - INFO - ============================================================
+2025-08-15 16:30:59,237 - INFO - Model Type: heterognn4
+2025-08-15 16:30:59,237 - INFO - Experiment directory: results/heterognn4/20250815_163059
+2025-08-15 16:30:59,237 - INFO - Hyperparameters saved to results/heterognn4/20250815_163059/hyperparameters.txt
+2025-08-15 16:30:59,923 - INFO - Data split info saved to results/heterognn4/20250815_163059/data_split.json
+2025-08-15 16:30:59,923 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:31:00,076 - INFO - ============================================================
+2025-08-15 16:31:00,076 - INFO - EXPERIMENT START
+2025-08-15 16:31:00,076 - INFO - ============================================================
+2025-08-15 16:31:00,076 - INFO - Model Type: heterognn4
+2025-08-15 16:31:00,076 - INFO - Experiment directory: results/heterognn4/20250815_163100
+2025-08-15 16:31:00,076 - INFO - Hyperparameters saved to results/heterognn4/20250815_163100/hyperparameters.txt
+2025-08-15 16:31:00,849 - INFO - Data split info saved to results/heterognn4/20250815_163100/data_split.json
+2025-08-15 16:31:00,849 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:31:01,029 - INFO - ============================================================
+2025-08-15 16:31:01,029 - INFO - EXPERIMENT START
+2025-08-15 16:31:01,029 - INFO - ============================================================
+2025-08-15 16:31:01,029 - INFO - Model Type: heterognn4
+2025-08-15 16:31:01,029 - INFO - Experiment directory: results/heterognn4/20250815_163101
+2025-08-15 16:31:01,030 - INFO - Hyperparameters saved to results/heterognn4/20250815_163101/hyperparameters.txt
+2025-08-15 16:31:01,748 - INFO - Data split info saved to results/heterognn4/20250815_163101/data_split.json
+2025-08-15 16:31:01,748 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:31:01,923 - INFO - ============================================================
+2025-08-15 16:31:01,923 - INFO - EXPERIMENT START
+2025-08-15 16:31:01,923 - INFO - ============================================================
+2025-08-15 16:31:01,923 - INFO - Model Type: heterognn4
+2025-08-15 16:31:01,923 - INFO - Experiment directory: results/heterognn4/20250815_163101
+2025-08-15 16:31:01,923 - INFO - Hyperparameters saved to results/heterognn4/20250815_163101/hyperparameters.txt
+2025-08-15 16:31:02,749 - INFO - Data split info saved to results/heterognn4/20250815_163101/data_split.json
+2025-08-15 16:31:02,749 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:31:02,907 - INFO - ============================================================
+2025-08-15 16:31:02,907 - INFO - EXPERIMENT START
+2025-08-15 16:31:02,907 - INFO - ============================================================
+2025-08-15 16:31:02,907 - INFO - Model Type: heterognn4
+2025-08-15 16:31:02,907 - INFO - Experiment directory: results/heterognn4/20250815_163102
+2025-08-15 16:31:02,907 - INFO - Hyperparameters saved to results/heterognn4/20250815_163102/hyperparameters.txt
+2025-08-15 16:31:03,626 - INFO - Data split info saved to results/heterognn4/20250815_163102/data_split.json
+2025-08-15 16:31:03,626 - INFO - Data split: Train=860, Val=215, Test=190
+2025-08-15 16:31:03,801 - INFO - ============================================================
+2025-08-15 16:31:03,801 - INFO - EXPERIMENT START
+2025-08-15 16:31:03,801 - INFO - ============================================================
+2025-08-15 16:31:03,801 - INFO - Model Type: heterognn4
+2025-08-15 16:31:03,801 - INFO - Experiment directory: results/heterognn4/20250815_163103
+2025-08-15 16:31:03,801 - INFO - Hyperparameters saved to results/heterognn4/20250815_163103/hyperparameters.txt
+2025-08-15 16:31:04,599 - INFO - Data split info saved to results/heterognn4/20250815_163103/data_split.json
+2025-08-15 16:31:04,599 - INFO - Data split: Train=860, Val=215, Test=190

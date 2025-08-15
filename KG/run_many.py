@@ -89,7 +89,7 @@ def run_multiple_experiments(
                 
                 # Data configuration
                 n_facts=35,
-                limit=None,
+                limit=100,
                 use_cache=True,
                 
                 # Model architecture

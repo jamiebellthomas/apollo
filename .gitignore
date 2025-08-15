@@ -2,6 +2,7 @@
 Data/nasdaq_exteral_data.csv
 
 passwords.txt
+*.db
 *.log
 *.json
 .env
