@@ -49,7 +49,7 @@ MANUAL_RESULTS_DIRECTORIES = [
 
 # Option 2: Automatic discovery (recommended)
 USE_AUTO_DISCOVERY = True  # Set to True to automatically find all Results subdirectories
-MODEL_TYPE = "heterognn"
+MODEL_TYPE = "heterognn4"
 RESULTS_BASE_DIR = f"Results/{MODEL_TYPE}"  # Base directory to search for model results
 
 # EPS Surprises analysis
@@ -205,6 +205,40 @@ def load_car_data_from_cache(cache_file):
         print(f"Error loading cache: {e}")
         return None
 
+def read_model_precision(results_dir):
+    """
+    Read precision from model's results.json file.
+    
+    Args:
+        results_dir (str): Path to results directory
+    
+    Returns:
+        float: Precision value or None if not found
+    """
+    results_file = os.path.join(results_dir, "results.json")
+    
+    if not os.path.exists(results_file):
+        print(f"Warning: results.json not found in {results_dir}")
+        return None
+    
+    try:
+        import json
+        with open(results_file, 'r') as f:
+            results = json.load(f)
+        
+        # Extract precision from test_metrics
+        if 'test_metrics' in results and 'precision' in results['test_metrics']:
+            precision = results['test_metrics']['precision']
+            print(f"Found precision: {precision:.3f}")
+            return precision
+        else:
+            print(f"Warning: precision not found in results.json for {results_dir}")
+            return None
+            
+    except Exception as e:
+        print(f"Error reading results.json: {e}")
+        return None
+
 def process_model_results_from_cache(results_dir, eps_car_data):
     """
     Process a single model results directory using cached EPS data.
@@ -214,19 +248,22 @@ def process_model_results_from_cache(results_dir, eps_car_data):
         eps_car_data (list): List of cached CAR data for all EPS events
     
     Returns:
-        tuple: (model_name, car_data_list, total_predictions) or (None, None, None) if failed
+        tuple: (model_name, car_data_list, total_predictions, precision) or (None, None, None, None) if failed
     """
     print(f"\nProcessing model: {results_dir}")
     
     # Extract model name from directory
     model_name = os.path.basename(results_dir)
     
+    # Read precision from results.json
+    precision = read_model_precision(results_dir)
+    
     # Read predictions file
     events = read_predictions_from_folder(results_dir)
     
     if not events:
         print(f"No events found for {model_name}")
-        return None, None, None
+        return None, None, None, None
     
     total_predictions = len(events)
     print(f"Found {total_predictions} predicted events")
@@ -249,17 +286,17 @@ def process_model_results_from_cache(results_dir, eps_car_data):
     
     if model_car_data:
         print(f"Successfully matched {len(model_car_data)}/{total_predictions} events for {model_name}")
-        return model_name, model_car_data, total_predictions
+        return model_name, model_car_data, total_predictions, precision
     else:
         print(f"No valid CAR data could be found for {model_name}")
-        return None, None, None
+        return None, None, None, None
 
 def plot_multi_model_comparison(model_results, eps_car_data, days_before, days_after, save_path=None):
     """
     Plot comparison of multiple models against EPS surprises baseline.
     
     Args:
-        model_results (list): List of tuples (model_name, car_data_list, total_predictions)
+        model_results (list): List of tuples (model_name, car_data_list, total_predictions, precision)
         eps_car_data (list): List of CAR data for EPS surprises
         days_before (int): Number of days before event
         days_after (int): Number of days after event
@@ -278,16 +315,25 @@ def plot_multi_model_comparison(model_results, eps_car_data, days_before, days_a
     line_labels = []
     
     # Plot each model's average CAR
-    for i, (model_name, car_data_list, total_predictions) in enumerate(model_results):
+    for i, (model_name, car_data_list, total_predictions, precision) in enumerate(model_results):
         if car_data_list:
             model_cars = [data['car'] for data in car_data_list if data is not None]
             if model_cars:
                 avg_model_car = np.mean(model_cars, axis=0)
+                
+                # Create label with precision if available
+                if precision is not None:
+                    label = r'$\text{' + model_name + r' Average CAR} \quad (N = ' + str(len(model_cars)) + r', \text{Precision} = ' + f'{precision:.3f}' + r')$'
+                    hover_label = f"{model_name} Average CAR (N = {len(model_cars)}, Precision = {precision:.3f})"
+                else:
+                    label = r'$\text{' + model_name + r' Average CAR} \quad (N = ' + str(len(model_cars)) + r')$'
+                    hover_label = f"{model_name} Average CAR (N = {len(model_cars)})"
+                
                 line, = ax.plot(relative_days, avg_model_car, 
-                        label=r'$\text{' + model_name + r' Average CAR} \quad (N = ' + str(len(model_cars)) + r')$', 
+                        label=label, 
                         color=colors[i], linewidth=3, marker='o', markersize=6)
                 line_objects.append(line)
-                line_labels.append(f"{model_name} Average CAR (N = {len(model_cars)})")
+                line_labels.append(hover_label)
     
     # Plot EPS surprises average CAR
     if eps_car_data:
@@ -420,9 +466,9 @@ def main():
 
     for results_dir in results_dirs:
         if os.path.exists(results_dir):
-            model_name, car_data_list, total_predictions = process_model_results_from_cache(results_dir, eps_car_data)
+            model_name, car_data_list, total_predictions, precision = process_model_results_from_cache(results_dir, eps_car_data)
             if model_name and car_data_list:
-                model_results.append((model_name, car_data_list, total_predictions))
+                model_results.append((model_name, car_data_list, total_predictions, precision))
         else:
             print(f"Warning: Results directory not found: {results_dir}")
     
@@ -442,7 +488,7 @@ def main():
     print("SUMMARY STATISTICS")
     print("="*80)
     
-    for model_name, car_data_list, total_predictions in model_results:
+    for model_name, car_data_list, total_predictions, precision in model_results:
         if car_data_list:
             model_cars = [data['car'] for data in car_data_list if data is not None]
             if model_cars:
@@ -453,6 +499,8 @@ def main():
                 
                 print(f"\n{model_name}:")
                 print(f"  Events: {len(model_cars)}")
+                if precision is not None:
+                    print(f"  Precision: {precision:.3f}")
                 print(f"  Pre-Event CAR (Day 0): {pre_event_car:.6f}")
                 print(f"  Post-Event CAR (Final): {post_event_car:.6f}")
                 print(f"  Total CAR Change: {car_change:.6f}")

@@ -225,6 +225,7 @@ from SubGraphDataLoader import SubGraphDataLoader
 from HeteroGNN import HeteroGNN  # ensure this matches your file/module name
 from HeteroGNN2 import HeteroGNN2  # add HeteroGNN2 as an option
 from HeteroGNN3 import HeteroGNN3  # add HeteroGNN3 as an option
+from HeteroGNN4 import HeteroAttnGNN  # add HeteroGNN4 with attention as an option
 
 # Import config
 import sys
@@ -419,6 +420,9 @@ def split_list(dataset: List[HeteroData], train_ratio=0.7, val_ratio=0.15, seed=
     idx_test = perm[n_train+n_val:]
 
     def class_stats(split, name):
+        if len(split) == 0:
+            print(f"[split] {name}: total=0, pos=0 (0.00%), neg=0 (0.00%)")
+            return
         y = torch.cat([g.y for g in split]).cpu().numpy()
         pos = (y > 0.5).sum()
         neg = len(y) - pos
@@ -493,7 +497,54 @@ def init_lazy_params(model: nn.Module, sample_batch: HeteroData, device: torch.d
     Trigger lazy layer initialization (e.g., GCNConv with in_channels=-1) before creating the optimizer.
     """
     model.to(device)
-    _ = model(sample_batch.to(device))
+    
+    # Move batch to device first
+    sample_batch = sample_batch.to(device)
+    
+    # Double-check that all tensors are on the correct device
+    for node_type in sample_batch.node_types:
+        if hasattr(sample_batch[node_type], 'x') and sample_batch[node_type].x is not None:
+            if sample_batch[node_type].x.device != device:
+                sample_batch[node_type].x = sample_batch[node_type].x.to(device)
+        if hasattr(sample_batch[node_type], 'batch') and sample_batch[node_type].batch is not None:
+            if sample_batch[node_type].batch.device != device:
+                sample_batch[node_type].batch = sample_batch[node_type].batch.to(device)
+    
+    for edge_type in sample_batch.edge_types:
+        if hasattr(sample_batch[edge_type], 'edge_index') and sample_batch[edge_type].edge_index is not None:
+            if sample_batch[edge_type].edge_index.device != device:
+                sample_batch[edge_type].edge_index = sample_batch[edge_type].edge_index.to(device)
+        if hasattr(sample_batch[edge_type], 'edge_attr') and sample_batch[edge_type].edge_attr is not None:
+            if sample_batch[edge_type].edge_attr.device != device:
+                sample_batch[edge_type].edge_attr = sample_batch[edge_type].edge_attr.to(device)
+    
+    if hasattr(sample_batch, 'y') and sample_batch.y is not None:
+        if sample_batch.y.device != device:
+            sample_batch.y = sample_batch.y.to(device)
+    
+    # Debug: Print device information after moving
+    print(f"[DEBUG] After device transfer:")
+    for node_type in sample_batch.node_types:
+        if hasattr(sample_batch[node_type], 'x') and sample_batch[node_type].x is not None:
+            print(f"  {node_type}.x: {sample_batch[node_type].x.device}")
+        if hasattr(sample_batch[node_type], 'batch') and sample_batch[node_type].batch is not None:
+            print(f"  {node_type}.batch: {sample_batch[node_type].batch.device}")
+    
+    for edge_type in sample_batch.edge_types:
+        if hasattr(sample_batch[edge_type], 'edge_index') and sample_batch[edge_type].edge_index is not None:
+            print(f"  {edge_type}.edge_index: {sample_batch[edge_type].edge_index.device}")
+        if hasattr(sample_batch[edge_type], 'edge_attr') and sample_batch[edge_type].edge_attr is not None:
+            print(f"  {edge_type}.edge_attr: {sample_batch[edge_type].edge_attr.device}")
+    
+    if hasattr(sample_batch, 'y') and sample_batch.y is not None:
+        print(f"  y: {sample_batch.y.device}")
+    
+    # Debug: Check model device
+    print(f"[DEBUG] Model device check:")
+    print(f"  Model device: {next(model.parameters()).device}")
+    print(f"  Edge builder lambda_decay device: {model.edge_builder.lambda_decay.device}")
+    
+    _ = model(sample_batch)
 
 # ----------------------------
 # Ticker feature scaler (train-only)
@@ -811,14 +862,18 @@ def run_training(
     limit: int | None = None,
     use_cache: bool = True,  # New parameter to enable/disable caching
     # --- model ---
-    model_type: str = "heterognn",  # "heterognn" or "heterognn2"
-    hidden_channels: int = 64,
-    num_layers: int = 2,
+    model_type: str = "heterognn4",  # "heterognn", "heterognn2", "heterognn3", or "heterognn4"
+    hidden_channels: int = 128,
+    num_layers: int = 3,
     feature_dropout: float = 0.3,
     edge_dropout: float = 0.0,
     final_dropout: float = 0.1,
-    readout: str = "concat",          # 'fact' | 'company' | 'concat' | 'gated'
+    readout: str = "company",          # 'fact' | 'company' | 'concat' | 'gated'
     time_dim: int = 8,  # For HeteroGNN2 temporal encoding
+    # --- attention parameters (for HeteroGNN4) ---
+    heads: int = 4,  # Number of attention heads
+    funnel_to_primary: bool = False,  # If True: only ('fact','mentions','company') relation is used
+    topk_per_primary: int | None = None,  # If set, keep top-k incoming fact edges per primary before attention
     # --- training ---
     train_ratio: float = 0.7,
     val_ratio: float = 0.15,
@@ -858,6 +913,9 @@ def run_training(
         final_dropout=final_dropout,
         readout=readout,
         time_dim=time_dim,
+        heads=heads,
+        funnel_to_primary=funnel_to_primary,
+        topk_per_primary=topk_per_primary,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         batch_size=batch_size,
@@ -900,6 +958,9 @@ def run_training(
             cache_dir = get_cache_dir()
             base_cache_filename = get_cache_filename(n_facts, limit)
             
+            print(f"[data] Cache directory: {cache_dir}")
+            print(f"[data] Base cache filename: {base_cache_filename}")
+            
             # Create separate filenames for training and testing
             training_cache_filename = f"training_{base_cache_filename}"
             testing_cache_filename = f"testing_{base_cache_filename}"
@@ -907,30 +968,58 @@ def run_training(
             training_cache_path = os.path.join(cache_dir, training_cache_filename)
             testing_cache_path = os.path.join(cache_dir, testing_cache_filename)
             
+            print(f"[data] Training cache path: {training_cache_path}")
+            print(f"[data] Testing cache path: {testing_cache_path}")
+            
             # Check if both cache files exist
-            if os.path.exists(training_cache_path) and os.path.exists(testing_cache_path):
+            training_exists = os.path.exists(training_cache_path)
+            testing_exists = os.path.exists(testing_cache_path)
+            print(f"[data] Training cache exists: {training_exists}")
+            print(f"[data] Testing cache exists: {testing_exists}")
+            
+            if training_exists and testing_exists:
                 try:
                     # Load training cache
+                    print(f"[data] Loading training cache from: {training_cache_path}")
                     training_cache_data = safe_read_pickle(training_cache_path)
-                    if training_cache_data and validate_cache_data(training_cache_data):
+                    print(f"[data] Training cache data type: {type(training_cache_data)}")
+                    if training_cache_data:
+                        print(f"[data] Training cache keys: {list(training_cache_data.keys()) if isinstance(training_cache_data, dict) else 'Not a dict'}")
+                    if training_cache_data and isinstance(training_cache_data, dict) and 'graphs' in training_cache_data and 'raw_sg' in training_cache_data:
                         training_graphs = training_cache_data['graphs']
                         training_raw_sg = training_cache_data['raw_sg']
                         print(f"[data] ✅ Loaded {len(training_graphs)} training graphs from cache")
                     else:
-                        print("[data] ❌ Training cache validation failed")
+                        print("[data] ❌ Training cache validation failed - invalid data structure")
                         
                     # Load testing cache
+                    print(f"[data] Loading testing cache from: {testing_cache_path}")
                     testing_cache_data = safe_read_pickle(testing_cache_path)
-                    if testing_cache_data and validate_cache_data(testing_cache_data):
+                    print(f"[data] Testing cache data type: {type(testing_cache_data)}")
+                    if testing_cache_data:
+                        print(f"[data] Testing cache keys: {list(testing_cache_data.keys()) if isinstance(testing_cache_data, dict) else 'Not a dict'}")
+                    if testing_cache_data and isinstance(testing_cache_data, dict) and 'graphs' in testing_cache_data and 'raw_sg' in testing_cache_data:
                         testing_graphs = testing_cache_data['graphs']
                         testing_raw_sg = testing_cache_data['raw_sg']
                         print(f"[data] ✅ Loaded {len(testing_graphs)} testing graphs from cache")
                     else:
-                        print("[data] ❌ Testing cache validation failed")
+                        print("[data] ❌ Testing cache validation failed - invalid data structure")
                         
                     # Check if both loads were successful
                     if training_graphs is not None and testing_graphs is not None:
                         print(f"[data] ✅ Successfully loaded {len(training_graphs)} training + {len(testing_graphs)} testing graphs from cache")
+                        
+                        # Additional validation
+                        if len(training_graphs) != len(training_raw_sg):
+                            print(f"[data] ❌ Training data mismatch: {len(training_graphs)} graphs vs {len(training_raw_sg)} raw_sg")
+                            training_graphs = None
+                            testing_graphs = None
+                        elif len(testing_graphs) != len(testing_raw_sg):
+                            print(f"[data] ❌ Testing data mismatch: {len(testing_graphs)} graphs vs {len(testing_raw_sg)} raw_sg")
+                            training_graphs = None
+                            testing_graphs = None
+                        else:
+                            print(f"[data] ✅ Data validation passed")
                     else:
                         print("[data] ❌ Cache loading failed, will process from scratch")
                         training_graphs = None
@@ -959,7 +1048,6 @@ def run_training(
     if training_graphs is None or testing_graphs is None:
         print("[data] Processing dataset from scratch...")
         # Use absolute path for subgraphs file
-        import os
         subgraphs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), config.SUBGRAPHS_JSONL)
         
         # Create loader with fixed splits
@@ -1049,8 +1137,8 @@ def run_training(
     # Split training graphs into train and validation
     train_set, val_set, _, train_indices, val_indices, _ = split_list(
         dataset=training_graphs,
-        train_ratio=train_ratio/(train_ratio + val_ratio),  # Adjust ratio for train/val split
-        val_ratio=val_ratio/(train_ratio + val_ratio),      # Adjust ratio for train/val split
+        train_ratio=train_ratio,  # Use original train_ratio directly
+        val_ratio=val_ratio,      # Use original val_ratio directly
         seed=seed
     )
     
@@ -1124,20 +1212,65 @@ def run_training(
             readout=readout,
         )
         print(f"[model] Using HeteroGNN3 with {hidden_channels} hidden channels, {num_layers} layers (NO TEMPORAL ENCODING)")
+    elif model_type.lower() == "heterognn4":
+        model = HeteroAttnGNN(
+            metadata=metadata,
+            hidden_channels=hidden_channels,
+            num_layers=num_layers,
+            heads=heads,
+            time_dim=time_dim,
+            feature_dropout=feature_dropout,
+            edge_dropout=edge_dropout,
+            final_dropout=final_dropout,
+            readout=readout,
+            funnel_to_primary=funnel_to_primary,
+            topk_per_primary=topk_per_primary,
+        )
+        print(f"[model] Using HeteroGNN4 (Attention) with {hidden_channels} hidden channels, {num_layers} layers, {heads} heads, time_dim={time_dim}")
+        if funnel_to_primary:
+            print(f"[model] Funnel mode enabled: only ('fact','mentions','company') relations")
+        if topk_per_primary is not None:
+            print(f"[model] Top-k pre-gating enabled: keeping top {topk_per_primary} edges per company")
     else:
-        raise ValueError(f"Unknown model_type: {model_type}. Use 'heterognn', 'heterognn2', or 'heterognn3'")
+        raise ValueError(f"Unknown model_type: {model_type}. Use 'heterognn', 'heterognn2', 'heterognn3', or 'heterognn4'")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Device selection: prefer CUDA, then MPS, then CPU
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    # elif torch.backends.mps.is_available():
+    #     device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
     print(f"[device] Using {device}")
 
     # Initialize lazy params BEFORE creating optimizer
     sample_batch = next(iter(train_loader))
+    
+    # Debug: Check device before init_lazy_params
+    print(f"[DEBUG] Device before init: {device}")
+    print(f"[DEBUG] Sample batch device check:")
+    for node_type in sample_batch.node_types:
+        if hasattr(sample_batch[node_type], 'x') and sample_batch[node_type].x is not None:
+            print(f"  {node_type}.x: {sample_batch[node_type].x.device}")
+        if hasattr(sample_batch[node_type], 'batch') and sample_batch[node_type].batch is not None:
+            print(f"  {node_type}.batch: {sample_batch[node_type].batch.device}")
+    
+    for edge_type in sample_batch.edge_types:
+        if hasattr(sample_batch[edge_type], 'edge_index') and sample_batch[edge_type].edge_index is not None:
+            print(f"  {edge_type}.edge_index: {sample_batch[edge_type].edge_index.device}")
+        if hasattr(sample_batch[edge_type], 'edge_attr') and sample_batch[edge_type].edge_attr is not None:
+            print(f"  {edge_type}.edge_attr: {sample_batch[edge_type].edge_attr.device}")
+    
+    if hasattr(sample_batch, 'y') and sample_batch.y is not None:
+        print(f"  y: {sample_batch.y.device}")
+    
     init_lazy_params(model, sample_batch, device)
     
     # Debug: Check initial model outputs
     model.eval()
     with torch.no_grad():
-        sample_outputs = model(sample_batch.to(device))
+        # sample_batch is already on device from init_lazy_params
+        sample_outputs = model(sample_batch)
         sample_probs = torch.sigmoid(sample_outputs)
         print(f"[DEBUG] Initial model outputs (first 5): {sample_outputs[:5]}")
         print(f"[DEBUG] Initial probabilities (first 5): {sample_probs[:5]}")
@@ -1286,9 +1419,8 @@ def run_training(
     # Check if training ended too early after patience threshold
     def should_scrape_run(final_epoch: int, patience: int, min_epochs_after_patience: int = 10) -> bool:
         """
-        Check if training ended too early after the patience threshold.
-        If training ends less than min_epochs_after_patience epochs after patience threshold,
-        the run should be scraped.
+        Check if training ended too early.
+        If training stops before (patience + min_epochs_after_patience), the run is discarded.
         
         Args:
             final_epoch: The epoch where training ended
@@ -1298,11 +1430,11 @@ def run_training(
         Returns:
             bool: True if run should be scraped, False otherwise
         """
-        # Calculate when patience threshold would be hit
-        patience_threshold_epoch = patience + min_epochs_before_stopping
+        # Simple threshold: PATIENCE + MIN_EPOCHS_AFTER_PATIENCE
+        threshold = patience + min_epochs_after_patience
         
-        # Check if training ended too early after patience threshold
-        if final_epoch <= (patience_threshold_epoch + min_epochs_after_patience):
+        # Scrape if training ended before the threshold
+        if final_epoch < threshold:
             return True
         return False
     
@@ -1328,8 +1460,8 @@ def run_training(
     final_epoch = epoch
     if enable_run_scraping and should_scrape_run(final_epoch, patience, min_epochs_after_patience):
         print(f"[SCRAPE] Training ended too early! Final epoch: {final_epoch}")
-        print(f"[SCRAPE] Patience threshold would be at epoch: {patience + min_epochs_before_stopping}")
-        print(f"[SCRAPE] Training should have continued for at least {patience + min_epochs_before_stopping + min_epochs_after_patience} epochs")
+        print(f"[SCRAPE] Threshold is: {patience + min_epochs_after_patience} epochs")
+        print(f"[SCRAPE] Training should have continued for at least {patience + min_epochs_after_patience} epochs")
         print(f"[SCRAPE] Scraping run and removing all logs...")
         
         # Scrape the run
@@ -1414,7 +1546,7 @@ if __name__ == "__main__":
     # ============================================================
     
     # Choose which model to run
-    MODEL_TYPE = "heterognn3"  # "heterognn", "heterognn2", or "heterognn3"
+    MODEL_TYPE = "heterognn4"  # "heterognn", "heterognn2", "heterognn3", or "heterognn4"
     
     # Data configuration
     N_FACTS = 35  # Minimum number of facts per subgraph
@@ -1429,6 +1561,11 @@ if __name__ == "__main__":
     FINAL_DROPOUT = 0.2
     READOUT = "company"  # 'fact' | 'company' | 'concat' | 'gated'
     TIME_DIM = 16  # For HeteroGNN2 temporal encoding
+    
+    # Attention parameters (for HeteroGNN4)
+    HEADS = 4  # Number of attention heads
+    FUNNEL_TO_PRIMARY = False  # If True: only ('fact','mentions','company') relation is used
+    TOPK_PER_PRIMARY = None  # If set, keep top-k incoming fact edges per primary before attention
     
     # Training configuration
     BATCH_SIZE = 32
@@ -1453,8 +1590,8 @@ if __name__ == "__main__":
     MIN_EPOCHS_AFTER_PATIENCE = 10  # Minimum epochs that should occur after patience threshold
     
     # Data splitting
-    TRAIN_RATIO = 0.75
-    VAL_RATIO = 0.1
+    TRAIN_RATIO = 0.8
+    VAL_RATIO = 0.2
     
     # ============================================================
     # RUN TRAINING
@@ -1465,6 +1602,8 @@ if __name__ == "__main__":
         print("RUNNING HETEROGNN2 (Temporal-Aware Model)")
     elif MODEL_TYPE == "heterognn3":
         print("RUNNING HETEROGNN3 (No Temporal Encoding)")
+    elif MODEL_TYPE == "heterognn4":
+        print("RUNNING HETEROGNN4 (Attention Model)")
     else:
         print("RUNNING HETEROGNN (Original Model)")
     print("=" * 60)
@@ -1472,7 +1611,7 @@ if __name__ == "__main__":
     model, test_metrics, history = run_training(
         # Model configuration
         model_type=MODEL_TYPE,
-        time_dim=TIME_DIM if MODEL_TYPE == "heterognn2" else None,
+        time_dim=TIME_DIM if MODEL_TYPE in ["heterognn2", "heterognn4"] else None,
         
         # Data configuration
         n_facts=N_FACTS,
@@ -1486,6 +1625,9 @@ if __name__ == "__main__":
         edge_dropout=EDGE_DROPOUT,
         final_dropout=FINAL_DROPOUT,
         readout=READOUT,
+        heads=HEADS,
+        funnel_to_primary=FUNNEL_TO_PRIMARY,
+        topk_per_primary=TOPK_PER_PRIMARY,
         
         # Training configuration
         batch_size=BATCH_SIZE,
@@ -1530,7 +1672,7 @@ if __name__ == "__main__":
         print("=" * 60)
         sys.exit(1)
 
-    model_name = "HeteroGNN2" if MODEL_TYPE == "heterognn2" else "HeteroGNN" if MODEL_TYPE == "heterognn" else "HeteroGNN3"
+    model_name = "HeteroGNN2" if MODEL_TYPE == "heterognn2" else "HeteroGNN3" if MODEL_TYPE == "heterognn3" else "HeteroGNN4" if MODEL_TYPE == "heterognn4" else "HeteroGNN"
     print(f"\n{model_name} Results:")
     print(f"Test Accuracy: {test_metrics['acc']:.4f}")
     print(f"Test AUC: {test_metrics.get('auc', float('nan')):.4f}")
@@ -1544,6 +1686,8 @@ if __name__ == "__main__":
         other_model = "heterognn2"
     elif MODEL_TYPE == "heterognn2":
         other_model = "heterognn3"
+    elif MODEL_TYPE == "heterognn3":
+        other_model = "heterognn4"
     else:
         other_model = "heterognn"
     print(f"\n" + "=" * 60)
