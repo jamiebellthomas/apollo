@@ -1,8 +1,0 @@
-2025-08-15 19:19:44,152 - INFO - ============================================================
-2025-08-15 19:19:44,152 - INFO - EXPERIMENT START
-2025-08-15 19:19:44,152 - INFO - ============================================================
-2025-08-15 19:19:44,152 - INFO - Model Type: heterognn4
-2025-08-15 19:19:44,153 - INFO - Experiment directory: results/heterognn4/20250815_191944
-2025-08-15 19:19:44,153 - INFO - Hyperparameters saved to results/heterognn4/20250815_191944/hyperparameters.txt
-2025-08-15 19:19:45,844 - INFO - Data split info saved to results/heterognn4/20250815_191944/data_split.json
-2025-08-15 19:19:45,844 - INFO - Data split: Train=860, Val=215, Test=190

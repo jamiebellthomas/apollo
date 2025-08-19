@@ -1,6 +1,0 @@
-2025-08-15 16:31:59,315 - INFO - ============================================================
-2025-08-15 16:31:59,316 - INFO - EXPERIMENT START
-2025-08-15 16:31:59,316 - INFO - ============================================================
-2025-08-15 16:31:59,316 - INFO - Model Type: heterognn4
-2025-08-15 16:31:59,316 - INFO - Experiment directory: results/heterognn4/20250815_163159
-2025-08-15 16:31:59,316 - INFO - Hyperparameters saved to results/heterognn4/20250815_163159/hyperparameters.txt

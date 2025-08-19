@@ -205,3 +205,7 @@ Get plots of average car for both architectures and on the same plot
 heterognn Struggled wigh higher learning rates?
 
 Ok, new architecture I want to try tomorrow is edges aren't bidirectional instead everything flows into the primary ticker - Secondary ticker->Fact->Primary Ticker
+
+
+Get reason for high FN number :)
+Look at the training data and see if its unseen, generally analyse training, use cluter analysis to identify key event types to see why loads of FNs are being identified.  

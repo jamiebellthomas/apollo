@@ -148,31 +148,50 @@ def cache_dataset(n_facts=25, limit=None, cache_dir=None):
     attach_y_and_meta(training_graphs, training_raw_sg)
     attach_y_and_meta(testing_graphs, testing_raw_sg)
     
-    # Combine for backward compatibility with existing cache format
-    all_graphs = training_graphs + testing_graphs
-    all_raw_sg = training_raw_sg + testing_raw_sg
+    # Create separate training and testing cache files (like run.py expects)
+    base_cache_filename = get_cache_filename(n_facts, limit)
+    training_cache_filename = f"training_{base_cache_filename}"
+    testing_cache_filename = f"testing_{base_cache_filename}"
     
-    # Prepare cache data
-    cache_data = {
-        'graphs': all_graphs,
-        'raw_sg': all_raw_sg,
+    training_cache_path = os.path.join(cache_dir, training_cache_filename)
+    testing_cache_path = os.path.join(cache_dir, testing_cache_filename)
+    
+    # Prepare training cache data
+    training_cache_data = {
+        'graphs': training_graphs,
+        'raw_sg': training_raw_sg,
         'n_facts': n_facts,
         'limit': limit,
         'timestamp': time.time(),
-        'graph_count': len(all_graphs)
+        'graph_count': len(training_graphs)
     }
     
-    # Atomically write cache data
-    print(f"Writing cache to {cache_path}...")
-    atomic_write_pickle(cache_data, cache_path)
+    # Prepare testing cache data
+    testing_cache_data = {
+        'graphs': testing_graphs,
+        'raw_sg': testing_raw_sg,
+        'n_facts': n_facts,
+        'limit': limit,
+        'timestamp': time.time(),
+        'graph_count': len(testing_graphs)
+    }
+    
+    # Atomically write both cache files
+    print(f"Writing training cache to {training_cache_path}...")
+    atomic_write_pickle(training_cache_data, training_cache_path)
+    
+    print(f"Writing testing cache to {testing_cache_path}...")
+    atomic_write_pickle(testing_cache_data, testing_cache_path)
     
     elapsed_time = time.time() - start_time
     print(f"✅ Dataset cached successfully!")
-    print(f"   Cache file: {cache_path}")
-    print(f"   Graphs: {len(all_graphs)}")
+    print(f"   Training cache: {training_cache_path}")
+    print(f"   Testing cache: {testing_cache_path}")
+    print(f"   Training graphs: {len(training_graphs)}")
+    print(f"   Testing graphs: {len(testing_graphs)}")
     print(f"   Time taken: {elapsed_time:.2f} seconds")
     
-    return cache_path
+    return training_cache_path, testing_cache_path
 
 def load_cached_dataset(n_facts=25, limit=None, cache_dir=None):
     """Load cached dataset if available with error handling"""
@@ -221,4 +240,4 @@ def load_cached_dataset(n_facts=25, limit=None, cache_dir=None):
 
 if __name__ == "__main__":
     # Cache the dataset with current parameters
-    cache_dataset(n_facts=25, limit=None) 
+    cache_dataset(n_facts=35, limit=None) 
