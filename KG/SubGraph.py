@@ -657,6 +657,7 @@ class SubGraph:
         fact_dates = [f.get("date", "N/A") for f in self.fact_list]
         fact_texts = [f.get("raw_text", "") for f in self.fact_list]
         fact_event_types = [f.get("event_type", "") for f in self.fact_list]
+        fact_ids = [f.get("fact_id", -1) for f in self.fact_list]  # Add original fact_ids
 
         fact_sentiments = [float(f.get("sentiment", 0.0)) for f in self.fact_list]
         fact_decays = [float(f.get("delta_days", 0)) for f in self.fact_list]  # we'll apply decay function later
@@ -678,7 +679,8 @@ class SubGraph:
             "fact_texts": fact_texts,
             "fact_sentiments": fact_sentiments,
             "fact_weights": fact_weights,
-            "fact_event_types": fact_event_types
+            "fact_event_types": fact_event_types,
+            "fact_ids": fact_ids  # Add fact_ids to the graph data
         }
 
 
@@ -750,6 +752,17 @@ class SubGraph:
 
         # Add graph-level label
         hetero_data['graph_label'] = torch.tensor(self.label, dtype=torch.long)
+        
+        # Store original fact_ids for explainability
+        if "fact_ids" in np_graph:
+            hetero_data.fact_ids = np_graph["fact_ids"]
+        
+        # Store subgraph metadata for explainability
+        hetero_data.primary_ticker = self.primary_ticker
+        hetero_data.reported_date = self.reported_date
+        hetero_data.eps_surprise = self.eps_surprise
+        hetero_data.label = self.label
+        hetero_data.fact_count = len(self.fact_list) if self.fact_list else 0
 
         return hetero_data
 

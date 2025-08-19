@@ -19,7 +19,7 @@ Configuration:
 - MIN_EPOCHS_AFTER_PATIENCE: Minimum epochs that should occur after patience threshold
 """
 
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 import math
 import os
 import numpy as np
@@ -226,6 +226,7 @@ from HeteroGNN import HeteroGNN  # ensure this matches your file/module name
 from HeteroGNN2 import HeteroGNN2  # add HeteroGNN2 as an option
 from HeteroGNN3 import HeteroGNN3  # add HeteroGNN3 as an option
 from HeteroGNN4 import HeteroAttnGNN  # add HeteroGNN4 with attention as an option
+from HeteroGNN5 import HeteroAttnGNN as HeteroGNN5  # add HeteroGNN5 with enhanced attention as an option
 
 # Import config
 import sys
@@ -874,6 +875,15 @@ def run_training(
     heads: int = 4,  # Number of attention heads
     funnel_to_primary: bool = False,  # If True: only ('fact','mentions','company') relation is used
     topk_per_primary: int | None = None,  # If set, keep top-k incoming fact edges per primary before attention
+    # --- HeteroGNN5 specific parameters ---
+    attn_temperature: float = 1.0,  # <1 sharpens, >1 softens attention (scales edge features)
+    entropy_reg_weight: float = 0.0,  # >0 enables attention sparsity penalty
+    time_bucket_edges: Optional[List[float]] = None,  # e.g., [0,7,30,90,9999]
+    time_bucket_emb_dim: int = 0,  # 0 disables bucket embeddings
+    add_abs_sent: bool = False,  # Add absolute sentiment to edge features
+    add_polarity_bit: bool = False,  # Add polarity bit to edge features
+    sentiment_jitter_std: float = 0.0,  # Train-time jitter on sentiment
+    delta_t_jitter_frac: float = 0.0,  # Train-time jitter on Δt (fractional)
     # --- training ---
     train_ratio: float = 0.7,
     val_ratio: float = 0.15,
@@ -916,6 +926,14 @@ def run_training(
         heads=heads,
         funnel_to_primary=funnel_to_primary,
         topk_per_primary=topk_per_primary,
+        attn_temperature=attn_temperature,
+        entropy_reg_weight=entropy_reg_weight,
+        time_bucket_edges=time_bucket_edges,
+        time_bucket_emb_dim=time_bucket_emb_dim,
+        add_abs_sent=add_abs_sent,
+        add_polarity_bit=add_polarity_bit,
+        sentiment_jitter_std=sentiment_jitter_std,
+        delta_t_jitter_frac=delta_t_jitter_frac,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         batch_size=batch_size,
@@ -1231,8 +1249,43 @@ def run_training(
             print(f"[model] Funnel mode enabled: only ('fact','mentions','company') relations")
         if topk_per_primary is not None:
             print(f"[model] Top-k pre-gating enabled: keeping top {topk_per_primary} edges per company")
+    elif model_type.lower() == "heterognn5":
+        model = HeteroGNN5(
+            metadata=metadata,
+            hidden_channels=hidden_channels,
+            num_layers=num_layers,
+            heads=heads,
+            time_dim=time_dim,
+            feature_dropout=feature_dropout,
+            edge_dropout=edge_dropout,
+            final_dropout=final_dropout,
+            readout=readout,
+            funnel_to_primary=funnel_to_primary,
+            topk_per_primary=topk_per_primary,
+            # HeteroGNN5 specific parameters
+            attn_temperature=attn_temperature,
+            entropy_reg_weight=entropy_reg_weight,
+            time_bucket_edges=time_bucket_edges,
+            time_bucket_emb_dim=time_bucket_emb_dim,
+            add_abs_sent=add_abs_sent,
+            add_polarity_bit=add_polarity_bit,
+            sentiment_jitter_std=sentiment_jitter_std,
+            delta_t_jitter_frac=delta_t_jitter_frac,
+        )
+        print(f"[model] Using HeteroGNN5 (Enhanced Attention) with {hidden_channels} hidden channels, {num_layers} layers, {heads} heads, time_dim={time_dim}")
+        print(f"[model] Attention temperature: {attn_temperature}, Entropy reg weight: {entropy_reg_weight}")
+        if funnel_to_primary:
+            print(f"[model] Funnel mode enabled: only ('fact','mentions','company') relations")
+        if topk_per_primary is not None:
+            print(f"[model] Top-k pre-gating enabled: keeping top {topk_per_primary} edges per company")
+        if time_bucket_edges is not None:
+            print(f"[model] Time bucket embeddings enabled: {time_bucket_emb_dim} dims")
+        if add_abs_sent or add_polarity_bit:
+            print(f"[model] Enhanced edge features: abs_sent={add_abs_sent}, polarity_bit={add_polarity_bit}")
+        if sentiment_jitter_std > 0.0 or delta_t_jitter_frac > 0.0:
+            print(f"[model] Training jitter: sentiment_std={sentiment_jitter_std}, delta_t_frac={delta_t_jitter_frac}")
     else:
-        raise ValueError(f"Unknown model_type: {model_type}. Use 'heterognn', 'heterognn2', 'heterognn3', or 'heterognn4'")
+        raise ValueError(f"Unknown model_type: {model_type}. Use 'heterognn', 'heterognn2', 'heterognn3', 'heterognn4', or 'heterognn5'")
 
     # Device selection: prefer CUDA, then MPS, then CPU
     if torch.cuda.is_available():
@@ -1546,7 +1599,7 @@ if __name__ == "__main__":
     # ============================================================
     
     # Choose which model to run
-    MODEL_TYPE = "heterognn4"  # "heterognn", "heterognn2", "heterognn3", or "heterognn4"
+    MODEL_TYPE = "heterognn5"  # "heterognn", "heterognn2", "heterognn3", "heterognn4", or "heterognn5"
     
     # Data configuration
     N_FACTS = 35  # Minimum number of facts per subgraph
@@ -1566,6 +1619,16 @@ if __name__ == "__main__":
     HEADS = 4  # Number of attention heads
     FUNNEL_TO_PRIMARY = False  # If True: only ('fact','mentions','company') relation is used
     TOPK_PER_PRIMARY = None  # If set, keep top-k incoming fact edges per primary before attention
+    
+    # HeteroGNN5 specific parameters
+    ATTN_TEMPERATURE = 1.0  # <1 sharpens, >1 softens attention (scales edge features)
+    ENTROPY_REG_WEIGHT = 0.0  # >0 enables attention sparsity penalty
+    TIME_BUCKET_EDGES = None  # e.g., [0,7,30,90,9999]
+    TIME_BUCKET_EMB_DIM = 0  # 0 disables bucket embeddings
+    ADD_ABS_SENT = False  # Add absolute sentiment to edge features
+    ADD_POLARITY_BIT = False  # Add polarity bit to edge features
+    SENTIMENT_JITTER_STD = 0.0  # Train-time jitter on sentiment
+    DELTA_T_JITTER_FRAC = 0.0  # Train-time jitter on Δt (fractional)
     
     # Training configuration
     BATCH_SIZE = 32
@@ -1604,6 +1667,8 @@ if __name__ == "__main__":
         print("RUNNING HETEROGNN3 (No Temporal Encoding)")
     elif MODEL_TYPE == "heterognn4":
         print("RUNNING HETEROGNN4 (Attention Model)")
+    elif MODEL_TYPE == "heterognn5":
+        print("RUNNING HETEROGNN5 (Enhanced Attention Model)")
     else:
         print("RUNNING HETEROGNN (Original Model)")
     print("=" * 60)
@@ -1611,7 +1676,7 @@ if __name__ == "__main__":
     model, test_metrics, history = run_training(
         # Model configuration
         model_type=MODEL_TYPE,
-        time_dim=TIME_DIM if MODEL_TYPE in ["heterognn2", "heterognn4"] else None,
+        time_dim=TIME_DIM if MODEL_TYPE in ["heterognn2", "heterognn4", "heterognn5"] else None,
         
         # Data configuration
         n_facts=N_FACTS,
@@ -1628,6 +1693,14 @@ if __name__ == "__main__":
         heads=HEADS,
         funnel_to_primary=FUNNEL_TO_PRIMARY,
         topk_per_primary=TOPK_PER_PRIMARY,
+        attn_temperature=ATTN_TEMPERATURE,
+        entropy_reg_weight=ENTROPY_REG_WEIGHT,
+        time_bucket_edges=TIME_BUCKET_EDGES,
+        time_bucket_emb_dim=TIME_BUCKET_EMB_DIM,
+        add_abs_sent=ADD_ABS_SENT,
+        add_polarity_bit=ADD_POLARITY_BIT,
+        sentiment_jitter_std=SENTIMENT_JITTER_STD,
+        delta_t_jitter_frac=DELTA_T_JITTER_FRAC,
         
         # Training configuration
         batch_size=BATCH_SIZE,
@@ -1672,7 +1745,7 @@ if __name__ == "__main__":
         print("=" * 60)
         sys.exit(1)
 
-    model_name = "HeteroGNN2" if MODEL_TYPE == "heterognn2" else "HeteroGNN3" if MODEL_TYPE == "heterognn3" else "HeteroGNN4" if MODEL_TYPE == "heterognn4" else "HeteroGNN"
+    model_name = "HeteroGNN2" if MODEL_TYPE == "heterognn2" else "HeteroGNN3" if MODEL_TYPE == "heterognn3" else "HeteroGNN4" if MODEL_TYPE == "heterognn4" else "HeteroGNN5" if MODEL_TYPE == "heterognn5" else "HeteroGNN"
     print(f"\n{model_name} Results:")
     print(f"Test Accuracy: {test_metrics['acc']:.4f}")
     print(f"Test AUC: {test_metrics.get('auc', float('nan')):.4f}")
@@ -1688,6 +1761,8 @@ if __name__ == "__main__":
         other_model = "heterognn3"
     elif MODEL_TYPE == "heterognn3":
         other_model = "heterognn4"
+    elif MODEL_TYPE == "heterognn4":
+        other_model = "heterognn5"
     else:
         other_model = "heterognn"
     print(f"\n" + "=" * 60)

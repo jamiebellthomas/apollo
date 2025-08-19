@@ -55,22 +55,22 @@ def run_multiple_experiments(
         
         try:
             # Configuration variables - all in one place
-            TIME_DIM = 16  # Used for HeteroGNN2 and HeteroGNN4
+            TIME_DIM = 16  # Used for HeteroGNN2, HeteroGNN4, and HeteroGNN5
             ENABLE_RUN_SCRAPING = True  # Set to True to enable run scraping
             MIN_EPOCHS_AFTER_PATIENCE = 10
             BATCH_SIZE = 32
             EPOCHS = 100
             if model_type == "heterognn2":
                 LEARNING_RATE = 3e-5
-            elif model_type == "heterognn4":
+                HIDDEN_CHANNELS = 128
+            elif model_type == "heterognn4" or model_type == "heterognn5":
                 LEARNING_RATE = 3e-6
+                HIDDEN_CHANNELS = 512  # More complex architecture can handle larger model dims without overfitting
+
             else:
                 LEARNING_RATE = 1e-5
-            
-            if model_type == "heterognn4":
-                HIDDEN_CHANNELS = 1024
-            else:
-                HIDDEN_CHANNELS = 128
+                HIDDEN_CHANNELS = 1024  # Reduced from 1024 - 512 should be sufficient with the enhanced architecture
+
             NUM_LAYERS = 4
             READOUT = "company"
             LOSS_TYPE = "weighted_bce"
@@ -79,6 +79,16 @@ def run_multiple_experiments(
             HEADS = 8  # Number of attention heads
             FUNNEL_TO_PRIMARY = False  # If True: only ('fact','mentions','company') relation is used
             TOPK_PER_PRIMARY = 15  # If set, keep top-k incoming fact edges per primary before attention
+            
+            # HeteroGNN5 specific parameters - OPTIMIZED for better training
+            ATTN_TEMPERATURE = 0.8  # <1 sharpens attention - helps focus on important edges
+            ENTROPY_REG_WEIGHT = 0.01  # Small sparsity penalty to encourage focused attention
+            TIME_BUCKET_EDGES = [0, 7, 30, 90, 9999]  # Coarse recency regimes for better generalization
+            TIME_BUCKET_EMB_DIM = 8  # Small embeddings for time buckets
+            ADD_ABS_SENT = True  # Add absolute sentiment - helps with polarity awareness
+            ADD_POLARITY_BIT = True  # Add polarity bit - explicit positive/negative signal
+            SENTIMENT_JITTER_STD = 0.1  # Small noise during training for robustness
+            DELTA_T_JITTER_FRAC = 0.05  # Small time noise during training for robustness
             
             # Run the training with the current seed
             # Using the same hyperparameters as in run.py
@@ -89,19 +99,27 @@ def run_multiple_experiments(
                 
                 # Data configuration
                 n_facts=35,
-                limit=100,
+                limit=None,
                 use_cache=True,
                 
                 # Model architecture
                 hidden_channels=HIDDEN_CHANNELS,
                 num_layers=NUM_LAYERS,
-                feature_dropout=0.3,
-                edge_dropout=0.1,
-                final_dropout=0.2,
+                feature_dropout=0.2 if model_type == "heterognn5" else 0.3,  # Lower dropout for HeteroGNN5 due to residuals
+                edge_dropout=0.05 if model_type == "heterognn5" else 0.1,  # Lower edge dropout for HeteroGNN5
+                final_dropout=0.1 if model_type == "heterognn5" else 0.2,  # Lower final dropout for HeteroGNN5
                 readout=READOUT,
                 heads=HEADS,
                 funnel_to_primary=FUNNEL_TO_PRIMARY,
                 topk_per_primary=TOPK_PER_PRIMARY,
+                attn_temperature=ATTN_TEMPERATURE,
+                entropy_reg_weight=ENTROPY_REG_WEIGHT,
+                time_bucket_edges=TIME_BUCKET_EDGES,
+                time_bucket_emb_dim=TIME_BUCKET_EMB_DIM,
+                add_abs_sent=ADD_ABS_SENT,
+                add_polarity_bit=ADD_POLARITY_BIT,
+                sentiment_jitter_std=SENTIMENT_JITTER_STD,
+                delta_t_jitter_frac=DELTA_T_JITTER_FRAC,
                 
                 # Training configuration
                 batch_size=BATCH_SIZE,
@@ -275,7 +293,7 @@ def run_all_model_types(
     """
     
     if model_types is None:
-        model_types = ["heterognn", "heterognn2", "heterognn3", "heterognn4"]
+        model_types = ["heterognn", "heterognn2", "heterognn3", "heterognn4", "heterognn5"]
     
     all_model_results = {}
     all_summaries = {}
@@ -337,6 +355,7 @@ if __name__ == "__main__":
     print("  - heterognn2: Temporal-aware model with learned temporal encoding")
     print("  - heterognn3: No temporal encoding (sentiment only)")
     print("  - heterognn4: Attention model with GATv2Conv and temporal encoding")
+    print("  - heterognn5: Enhanced attention model with edge-weighted attention, residuals, and layer norm")
     print("\nNote: Results are automatically saved to the Results directory by run.py")
      
     # Run the experiments for all model types
