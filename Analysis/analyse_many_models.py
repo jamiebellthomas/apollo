@@ -49,7 +49,7 @@ MANUAL_RESULTS_DIRECTORIES = [
 
 # Option 2: Automatic discovery (recommended)
 USE_AUTO_DISCOVERY = True  # Set to True to automatically find all Results subdirectories
-MODEL_TYPE = "heterognn"
+MODEL_TYPE = "heterognn5"
 RESULTS_BASE_DIR = f"Results/{MODEL_TYPE}"  # Base directory to search for model results
 
 # EPS Surprises analysis

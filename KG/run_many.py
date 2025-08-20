@@ -64,8 +64,8 @@ def run_multiple_experiments(
                 LEARNING_RATE = 3e-5
                 HIDDEN_CHANNELS = 128
             elif model_type == "heterognn4" or model_type == "heterognn5":
-                LEARNING_RATE = 3e-6
-                HIDDEN_CHANNELS = 512  # More complex architecture can handle larger model dims without overfitting
+                LEARNING_RATE = 7e-6
+                HIDDEN_CHANNELS = 1024  # More complex architecture can handle larger model dims without overfitting
 
             else:
                 LEARNING_RATE = 1e-5
@@ -342,7 +342,7 @@ if __name__ == "__main__":
     # Configuration - you can modify these parameters
     NUM_RUNS = 40  # Number of experiments to run per model type
     SEED_RANGE = (0, 1000000)  # Range for random seed generation
-    MODEL_TYPES = ["heterognn4"]  # Model types to run
+    MODEL_TYPES = ["heterognn5"]  # Model types to run
     
     print("Multiple Training Runs Script - All Model Types")
     print("=" * 50)

@@ -25,10 +25,9 @@ venv
 /Results/heterognn4_1024/2*
 /Results/heterognn4_1024/s*
 /Results/
-/Analysis/
+
 /heterognn4_256/
 
 /KG/dataset_cache/*
 /KG/model_cache/*
 *.pt
-/Analysis/heterognn*

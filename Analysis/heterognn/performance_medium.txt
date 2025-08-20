@@ -1,0 +1,51 @@
+Medium-Term Aggregated Model Performance for heterognn
+==================================================
+
+Number of test cases: 190
+Number of models used: 54
+
+Performance Metrics:
+Accuracy:  0.7105
+Precision: 0.6364
+Recall:    0.1207
+F1-Score:  0.2029
+
+Confusion Matrix:
+--------------------
+                Predicted
+                0    1
+Actual 0     128    4
+       1      51    7
+
+Confusion Matrix Details:
+True Negatives (TN): 128 - Correctly predicted negative
+False Positives (FP): 4 - Incorrectly predicted positive
+False Negatives (FN): 51 - Incorrectly predicted negative
+True Positives (TP): 7 - Correctly predicted positive
+
+Detailed Classification Report:
+------------------------------
+Class 0:
+  precision: 0.7151
+  recall: 0.9697
+  f1-score: 0.8232
+  support: 132.0000
+
+Class 1:
+  precision: 0.6364
+  recall: 0.1207
+  f1-score: 0.2029
+  support: 58.0000
+
+Class macro avg:
+  precision: 0.6757
+  recall: 0.5452
+  f1-score: 0.5130
+  support: 190.0000
+
+Class weighted avg:
+  precision: 0.6911
+  recall: 0.7105
+  f1-score: 0.6338
+  support: 190.0000
+
