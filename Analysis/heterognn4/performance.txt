@@ -2,50 +2,50 @@ Aggregated Model Performance for heterognn4
 ==================================================
 
 Number of test cases: 190
-Number of models used: 43
+Number of models used: 28
 
 Performance Metrics:
-Accuracy:  0.7053
-Precision: 0.6000
-Recall:    0.1034
-F1-Score:  0.1765
+Accuracy:  0.7737
+Precision: 0.6250
+Recall:    0.2128
+F1-Score:  0.3175
 
 Confusion Matrix:
 --------------------
                 Predicted
                 0    1
-Actual 0     128    4
-       1      52    6
+Actual 0     137    6
+       1      37   10
 
 Confusion Matrix Details:
-True Negatives (TN): 128 - Correctly predicted negative
-False Positives (FP): 4 - Incorrectly predicted positive
-False Negatives (FN): 52 - Incorrectly predicted negative
-True Positives (TP): 6 - Correctly predicted positive
+True Negatives (TN): 137 - Correctly predicted negative
+False Positives (FP): 6 - Incorrectly predicted positive
+False Negatives (FN): 37 - Incorrectly predicted negative
+True Positives (TP): 10 - Correctly predicted positive
 
 Detailed Classification Report:
 ------------------------------
 Class 0:
-  precision: 0.7111
-  recall: 0.9697
-  f1-score: 0.8205
-  support: 132.0000
+  precision: 0.7874
+  recall: 0.9580
+  f1-score: 0.8644
+  support: 143.0000
 
 Class 1:
-  precision: 0.6000
-  recall: 0.1034
-  f1-score: 0.1765
-  support: 58.0000
+  precision: 0.6250
+  recall: 0.2128
+  f1-score: 0.3175
+  support: 47.0000
 
 Class macro avg:
-  precision: 0.6556
-  recall: 0.5366
-  f1-score: 0.4985
+  precision: 0.7062
+  recall: 0.5854
+  f1-score: 0.5909
   support: 190.0000
 
 Class weighted avg:
-  precision: 0.6772
-  recall: 0.7053
-  f1-score: 0.6239
+  precision: 0.7472
+  recall: 0.7737
+  f1-score: 0.7291
   support: 190.0000
 

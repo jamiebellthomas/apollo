@@ -14,9 +14,6 @@ Adjust the import: `from model_gnn5 import HeteroAttnGNN` to match your codebase
 
 import os
 import json
-import pickle
-import time
-import glob
 from typing import Dict, Tuple, List, Optional
 from collections import defaultdict
 
@@ -26,33 +23,26 @@ from torch_geometric.data import HeteroData, InMemoryDataset
 from torch_geometric.loader import DataLoader as GeoDataLoader
 from torch_geometric.nn import global_add_pool
 
-# Import the safe_read_pickle function
-from cache_dataset import safe_read_pickle
-
 # ========= USER CONFIG =========
 CONFIG = {
-    "USE_CURRENT_DATA": False,  # Use cached dataset
-    "SUBGRAPHS_PATH": "Data/subgraphs.jsonl",  # Path to current subgraphs data (from project root)
-    "TEST_PATH": "KG/dataset_cache/testing_cached_dataset_nf35_limall.pkl",  # Test data from cache
-    "CHECKPOINT_PATH": "Results/heterognn5/20250818_171525/model.pt",     # Will be overridden for each model
-    "OUT_DIR": "KG/heterognn5_explanations",                               # output folder
-    "DEVICE": "cpu",                                                      # Use CPU since CUDA not available
-    "BATCH_SIZE": 1,                                                      # recommend 1 for clean per-graph capture
+    "TEST_PATH": "/path/to/test.pt",                # .pt list of HeteroData, directory of .pt graphs, or dict with 'data_list'
+    "CHECKPOINT_PATH": "/path/to/gnn5_state.pt",    # model state_dict or checkpoint dict
+    "OUT_DIR": "./gnn5_explanations",               # output folder
+    "DEVICE": "cuda:0",                             # "cuda:0" or "cpu"
+    "BATCH_SIZE": 1,                                # recommend 1 for clean per-graph capture
     "NUM_WORKERS": 0,
-    "TOPK": 15,                                                            # top-15 facts as requested
-    "ONLY_POSITIVE_LABELS": False,                                         # Process all predictions, filter by positive predictions
-    "THRESHOLD_LOGIT": 0.0,                                              # Only process when logit >= 0 (positive prediction)
-    "DO_IMPACT_CHECK": True,                                              # set False to disable removal-impact sanity check
-    "MC_DROPOUT_EVAL": False,                                             # set True to keep dropout active at eval for uncertainty
-    "PRIMARY_ONLY": True,                                                 # restrict attribution edges to the primary company node
-    "N_FACTS": 25,                                                        # Number of facts per subgraph for processing
-    "LIMIT": None                                                          # No limit - use all available data
+    "TOPK": 5,                                      # top-k facts to report per positive graph
+    "ONLY_POSITIVE_LABELS": True,                   # only produce outputs for label==1 graphs
+    "THRESHOLD_LOGIT": None,                        # e.g., 0.0 to require logit >= 0; None disables
+    "DO_IMPACT_CHECK": True,                        # set False to disable removal-impact sanity check
+    "MC_DROPOUT_EVAL": False,                       # set True to keep dropout active at eval for uncertainty
+    "PRIMARY_ONLY": True                            # restrict attribution edges to the primary company node
 }
 # ========= /USER CONFIG =========
 
 # === IMPORT YOUR MODEL HERE ===
 # Change this import to match your repository structure.
-from HeteroGNN5 import HeteroAttnGNN  # <-- Updated to match repository structure
+from model_gnn5 import HeteroAttnGNN  # <-- UPDATE THIS IMPORT
 # ==============================
 
 
@@ -65,11 +55,7 @@ def load_testset(path: str):
         graphs = [torch.load(fp) for fp in files]
         return graphs
 
-    # Use safe_read_pickle for cache files
-    obj = safe_read_pickle(path)
-    if obj is None:
-        raise ValueError(f"Failed to load cache file: {path}")
-    
+    obj = torch.load(path)
     if isinstance(obj, (list, tuple)):
         return list(obj)
     if isinstance(obj, InMemoryDataset):
@@ -79,46 +65,9 @@ def load_testset(path: str):
             return obj['data_list']
         if 'dataset' in obj:
             return obj['dataset']
-        if 'graphs' in obj:  # Handle the cache format from run.py
-            return obj['graphs']
     if isinstance(obj, HeteroData):
         return [obj]
     raise ValueError(f"Unsupported test set format at {path}")
-
-def load_current_testset(subgraphs_path: str, n_facts: int, limit: int):
-    """Load and process current subgraphs data for testing"""
-    print(f"Loading current subgraphs data from {subgraphs_path}")
-    print(f"Processing with n_facts={n_facts}, limit={limit}")
-    
-    # Import required modules
-    import sys
-    # Add the project root to the path so we can import from KG
-    project_root = os.path.dirname(os.path.dirname(__file__))
-    sys.path.append(project_root)
-    sys.path.append(os.path.join(project_root, 'KG'))
-    
-    from KG.SubGraphDataLoader import SubGraphDataLoader
-    from KG.run import encode_all_to_heterodata, attach_y_and_meta
-    
-    # Load subgraphs with the same parameters as the cached dataset
-    loader = SubGraphDataLoader(
-        min_facts=n_facts, 
-        limit=limit, 
-        jsonl_path=subgraphs_path,
-        train_ratio=0.7,
-        val_ratio=0.15,
-        seed=42,
-        split_data=True
-    )
-    
-    # Encode to HeteroData
-    training_graphs, testing_graphs, training_raw_sg, testing_raw_sg = encode_all_to_heterodata(loader)
-    
-    # Attach labels and metadata
-    attach_y_and_meta(testing_graphs, testing_raw_sg)
-    
-    print(f"✅ Loaded {len(testing_graphs)} test graphs from current data")
-    return testing_graphs, testing_raw_sg
 
 def infer_metadata_from_graph(g: HeteroData) -> Tuple[List[str], List[Tuple[str, str, str]]]:
     return list(g.node_types), list(g.edge_types)
@@ -129,75 +78,15 @@ def load_model(checkpoint_path: str, metadata, device: str) -> HeteroAttnGNN:
         state_dict = ckpt
         hparams = {}
     else:
-        state_dict = ckpt['state_dict']
-        hparams = ckpt.get('hyper_parameters', {})
-    
-    # Extract model parameters from state dict
-    # Look for key patterns to determine dimensions
-    hidden_channels = 128  # Default
-    num_layers = 2  # Default
-    heads = 4  # Default
-    time_dim = 8  # Default
-    
-    # Try to extract hidden_channels from classifier
-    for key in state_dict.keys():
-        if 'classifier.0.weight' in key:
-            shape = state_dict[key].shape
-            if len(shape) == 2:
-                hidden_channels = shape[0]
-                break
-    
-    # Try to extract num_layers from layer keys
-    max_layer = 0
-    for key in state_dict.keys():
-        if 'layers.' in key:
-            parts = key.split('.')
-            if len(parts) > 1:
-                try:
-                    layer_num = int(parts[1])
-                    max_layer = max(max_layer, layer_num)
-                except:
-                    pass
-    if max_layer > 0:
-        num_layers = max_layer + 1
-    
-    # Extract heads from attention weights
-    att_keys = [k for k in state_dict.keys() if 'att' in k and k.endswith('.att') and 'layers' in k]
-    if att_keys:
-        shape = state_dict[att_keys[0]].shape
-        heads = shape[1]  # This should be 8
-    else:
-        heads = 4  # Default
-    
-    # Also check if we need to adjust hidden_channels to be divisible by heads
-    if hidden_channels % heads != 0:
-        # Round down to nearest multiple of heads
-        hidden_channels = (hidden_channels // heads) * heads
-        print(f"Adjusted hidden_channels to {hidden_channels} to be divisible by {heads} heads")
-    
-    # Try to extract edge_dim from lin_edge weights
-    edge_dim = 10  # Default
-    for key in state_dict.keys():
-        if 'lin_edge.weight' in key:
-            shape = state_dict[key].shape
-            if len(shape) == 2:
-                edge_dim = shape[1]
-                break
-    
-    # Calculate time_dim from edge_dim
-    # edge_dim = 2 + time_dim + (add_abs_sent ? 1:0) + (add_polarity_bit ? 1:0) + (time_bucket_emb_dim or 0)
-    # Assuming no extras for now
-    time_dim = edge_dim - 2
-    
-    print(f"Model parameters: hidden_channels={hidden_channels}, num_layers={num_layers}, heads={heads}, edge_dim={edge_dim}, time_dim={time_dim}")
-    
-    # Create model with extracted parameters
+        state_dict = ckpt.get('state_dict', ckpt)
+        hparams = ckpt.get('hparams', {})
+
     model = HeteroAttnGNN(
         metadata=metadata,
-        hidden_channels=hidden_channels,
-        num_layers=num_layers,
-        heads=heads,
-        time_dim=time_dim,
+        hidden_channels=int(hparams.get('hidden_channels', 128)),
+        num_layers=int(hparams.get('num_layers', 2)),
+        heads=int(hparams.get('heads', 4)),
+        time_dim=int(hparams.get('time_dim', 8)),
         feature_dropout=float(hparams.get('feature_dropout', 0.2)),
         edge_dropout=float(hparams.get('edge_dropout', 0.0)),
         final_dropout=float(hparams.get('final_dropout', 0.1)),
@@ -213,12 +102,9 @@ def load_model(checkpoint_path: str, metadata, device: str) -> HeteroAttnGNN:
         sentiment_jitter_std=float(hparams.get('sentiment_jitter_std', 0.0)),
         delta_t_jitter_frac=float(hparams.get('delta_t_jitter_frac', 0.0)),
     )
-    
-    # Load state dict
     model.load_state_dict(state_dict, strict=False)
     model.to(device)
     model.eval()
-    
     return model
 
 
@@ -245,29 +131,12 @@ class AttnCapture:
                 x_src, x_dst = x_dict[src], x_dict[dst]
                 ei = edge_index_dict[key]
                 ea = edge_attr_dict[key]
-                
-                # Check if we have valid edges and nodes
-                if ei.numel() > 0 and x_src.size(0) > 0 and x_dst.size(0) > 0:
-                    # Ensure edge indices are within bounds
-                    max_src_idx = x_src.size(0) - 1
-                    max_dst_idx = x_dst.size(0) - 1
-                    
-                    # Filter edges that are within bounds
-                    valid_src = (ei[0] >= 0) & (ei[0] <= max_src_idx)
-                    valid_dst = (ei[1] >= 0) & (ei[1] <= max_dst_idx)
-                    valid_edges = valid_src & valid_dst
-                    
-                    if valid_edges.any():
-                        ei_valid = ei[:, valid_edges]
-                        ea_valid = ea[valid_edges] if ea is not None else None
-                        
-                        with torch.no_grad():
-                            _, (edge_index_used, alpha) = conv((x_src, x_dst), ei_valid, edge_attr=ea_valid, return_attention_weights=True)
-                        
-                        self.buffer.append({
-                            "edge_index": edge_index_used.detach().cpu(),
-                            "alpha": alpha.detach().cpu()
-                        })
+                with torch.no_grad():
+                    _, (edge_index_used, alpha) = conv((x_src, x_dst), ei, edge_attr=ea, return_attention_weights=True)
+                self.buffer.append({
+                    "edge_index": edge_index_used.detach().cpu(),
+                    "alpha": alpha.detach().cpu()
+                })
         return out
 
     def install(self):
@@ -367,22 +236,11 @@ def gather_edge_metadata_for_fact(
         rows.append(row)
     return rows
 
-def find_all_models():
-    """Find all model.pt files in Results/heterognn5/"""
-    pattern = "Results/heterognn5/*/model.pt"
-    model_paths = glob.glob(pattern)
-    model_paths.sort()  # Sort for consistent ordering
-    print(f"Found {len(model_paths)} models")
-    return model_paths
 
+# --------- Main pipeline ---------
 def main():
-    """Main function to process all models and get explanations"""
-    print("🚀 Starting Comprehensive HeteroGNN5 Explainer")
-    print("=" * 60)
-    
-    # Extract config
-    USE_CURRENT_DATA = CONFIG["USE_CURRENT_DATA"]
     TEST_PATH = CONFIG["TEST_PATH"]
+    CHECKPOINT_PATH = CONFIG["CHECKPOINT_PATH"]
     OUT_DIR = CONFIG["OUT_DIR"]
     DEVICE = CONFIG["DEVICE"]
     BATCH_SIZE = CONFIG["BATCH_SIZE"]
@@ -393,181 +251,186 @@ def main():
     DO_IMPACT = CONFIG["DO_IMPACT_CHECK"]
     MC_DROPOUT = CONFIG["MC_DROPOUT_EVAL"]
     PRIMARY_ONLY = CONFIG["PRIMARY_ONLY"]
-    
-    # Create output directory
+
     os.makedirs(OUT_DIR, exist_ok=True)
-    
+
     # Load test data
-    if USE_CURRENT_DATA:
-        testset, raw_sg = load_current_testset(CONFIG["SUBGRAPHS_PATH"], CONFIG["N_FACTS"], CONFIG["LIMIT"])
-    else:
-        testset = load_testset(TEST_PATH)
-        # Load original subgraphs for mapping back to original data
-        print("Loading original subgraphs for fact mapping...")
-        raw_sg = []
-        with open(CONFIG["SUBGRAPHS_PATH"], 'r') as f:
-            for line in f:
-                if line.strip():
-                    raw_sg.append(json.loads(line))
-        print(f"✅ Loaded {len(raw_sg)} original subgraphs for mapping")
-    
-    # Find all models
-    model_paths = find_all_models()
-    
-    # Process each model
-    all_results = []
-    all_agg_rows = []
-    
-    for model_idx, model_path in enumerate(model_paths):
-        print(f"\n📊 Processing model {model_idx+1}/{len(model_paths)}: {os.path.basename(os.path.dirname(model_path))}")
-        
-        # Load model
-        meta = infer_metadata_from_graph(testset[0])
-        model = load_model(model_path, meta, DEVICE)
-        
-        # Monkey-patch attention capture for proper influence computation
-        capturer = AttnCapture(model)
-        capturer.install()
-        
-        # Create data loader
-        loader = GeoDataLoader(testset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
-        
-        model.eval()
-        with torch.no_grad():
-            for batch_idx, data in enumerate(loader):
-                data = data.to(DEVICE)
-                
-                # Get model predictions with attention capture
-                logits = model(data, mc_dropout=MC_DROPOUT)
-                probs = torch.sigmoid(logits)
-                
-                # Get captured attention weights
-                captured = capturer.pop()
-                if not captured:
+    testset = load_testset(TEST_PATH)
+    loader = GeoDataLoader(testset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
+
+    # Infer metadata + load model
+    sample_batch = next(iter(loader))
+    meta = infer_metadata_from_graph(sample_batch if hasattr(sample_batch, 'node_types') else testset[0])
+
+    device = torch.device(DEVICE if torch.cuda.is_available() or "cpu" not in DEVICE else "cpu")
+    model = load_model(CHECKPOINT_PATH, meta, str(device))
+
+    # Monkey-patch attention capture
+    capturer = AttnCapture(model)
+    capturer.install()
+
+    agg_rows = []
+
+    model.eval()
+    with torch.no_grad():
+        for batch_idx, data in enumerate(loader):
+            data = data.to(device)
+
+            # MC-Dropout during eval if requested
+            if not model.training and MC_DROPOUT:
+                def enable_dropout(m):
+                    if isinstance(m, nn.Dropout):
+                        m.train()
+                model.apply(enable_dropout)
+
+            logits = model(data, mc_dropout=MC_DROPOUT)
+            probs = sigmoid(logits)
+
+            comp_batch = data['company'].batch
+            B = int(comp_batch.max().item()) + 1 if comp_batch.numel() > 0 else 1
+
+            captured = capturer.pop()
+            if not captured:
+                continue
+            cap = captured[-1]
+            edge_index_used = cap["edge_index"].to(device)
+            alpha = cap["alpha"].to(device)
+
+            dst = edge_index_used[1]
+            dst_batch = comp_batch[dst] if dst.numel() > 0 else dst
+
+            for g in range(B):
+                mask_e = (dst_batch == g) if dst.numel() > 0 else torch.tensor([], dtype=torch.bool, device=device)
+                if dst.numel() > 0 and mask_e.sum().item() == 0:
                     continue
-                    
-                cap = captured[-1]
-                edge_index_used = cap["edge_index"].to(DEVICE)
-                alpha = cap["alpha"].to(DEVICE)
-                
-                # Process each graph in the batch
-                for g in range(data.num_graphs):
-                    y_logit = float(logits[g].item())
-                    y_prob = float(probs[g].item())
-                    
-                    # Check if this is a positive prediction (logit >= threshold)
-                    if THRESH_LOGIT is not None and y_logit < THRESH_LOGIT:
-                        continue
-                    
+
+                if dst.numel() > 0:
+                    ei_g = edge_index_used[:, mask_e]
+                    alpha_g = alpha[mask_e, :]
+                else:
+                    ei_g = edge_index_used
+                    alpha_g = alpha
+
+                fact_batch = data['fact'].batch
+                if (fact_batch == g).sum().item() == 0:
+                    continue
+
+                influence = compute_influence_for_graph(data, ei_g, alpha_g, restrict_to_primary=PRIMARY_ONLY)
+                if len(influence) == 0:
+                    continue
+
+                y_true = int(data.y[g].item()) if hasattr(data, 'y') else None
+                y_logit = float(logits[g].item())
+                y_prob = float(probs[g].item())
+
+                if ONLY_POS and (y_true is not None) and (y_true != 1):
+                    continue
+                if THRESH_LOGIT is not None and y_logit < THRESH_LOGIT:
+                    continue
+
+                topk = sorted(influence.items(), key=lambda kv: kv[1], reverse=True)[:TOPK]
+
+                # Optional removal-impact check
+                impact_rows = []
+                if DO_IMPACT:
+                    for f_idx, score in topk:
+                        data_masked = mask_edges_by_fact(data, [f_idx])
+                        logit_masked = model(data_masked, mc_dropout=False)[g]
+                        prob_masked = float(sigmoid(logit_masked).item())
+                        delta_prob = y_prob - prob_masked
+                        rows = gather_edge_metadata_for_fact(data, ei_g, alpha_g, f_idx, top_only_to_primary=PRIMARY_ONLY)
+                        impact_rows.append({
+                            "fact_index": int(f_idx),
+                            "influence": float(score),
+                            "prob_base": y_prob,
+                            "prob_masked": prob_masked,
+                            "delta_prob": float(delta_prob),
+                            "edges": rows
+                        })
+                else:
+                    for f_idx, score in topk:
+                        rows = gather_edge_metadata_for_fact(data, ei_g, alpha_g, f_idx, top_only_to_primary=PRIMARY_ONLY)
+                        impact_rows.append({
+                            "fact_index": int(f_idx),
+                            "influence": float(score),
+                            "edges": rows
+                        })
+
+                # Optional raw_text extraction
+                raw_texts = getattr(data['fact'], 'raw_text', None)
+                def maybe_text(i):
                     try:
-                        # Compute real influence using attention weights
-                        dst = edge_index_used[1]
-                        comp_batch = data['company'].batch if hasattr(data, 'company') and hasattr(data['company'], 'batch') else None
-                        
-                        if comp_batch is not None:
-                            # Filter edges for this graph
-                            mask_e = (comp_batch[dst] == g) if dst.numel() > 0 else torch.tensor([], dtype=torch.bool, device=DEVICE)
-                            
-                            if dst.numel() > 0 and mask_e.sum().item() > 0:
-                                ei_g = edge_index_used[:, mask_e]
-                                alpha_g = alpha[mask_e, :]
-                                
-                                # Compute influence for this graph
-                                influence = compute_influence_for_graph(data, ei_g, alpha_g, restrict_to_primary=PRIMARY_ONLY)
-                            else:
-                                # Fallback: uniform influence
-                                influence = {i: 1.0 for i in range(data['fact'].num_nodes)}
-                        else:
-                            # Fallback: uniform influence
-                            influence = {i: 1.0 for i in range(data['fact'].num_nodes)}
-                        
-                        # Get top-k facts
-                        topk = sorted(influence.items(), key=lambda kv: kv[1], reverse=True)[:TOPK]
-                        
-                        # Process each top fact
-                        for rank, (fact_idx, score) in enumerate(topk, 1):
-                            fact_data = {
-                                "model_name": os.path.basename(os.path.dirname(model_path)),
-                                "graph_batch": batch_idx,
-                                "g_index": g,
-                                "logit": y_logit,
-                                "prob": y_prob,
-                                "rank": rank,
-                                "fact_index": int(fact_idx),
-                                "influence": float(score)
-                            }
-                            
-                            # Add original fact data from HeteroData attributes
-                            if hasattr(data, 'fact_ids') and fact_idx < len(data.fact_ids):
-                                original_fact_id = data.fact_ids[fact_idx]
-                                fact_data["original_fact_id"] = original_fact_id
-                                
-                                # Add subgraph metadata from HeteroData
-                                fact_data["subgraph_metadata"] = {
-                                    "primary_ticker": getattr(data, 'primary_ticker', None),
-                                    "reported_date": getattr(data, 'reported_date', None),
-                                    "eps_surprise": getattr(data, 'eps_surprise', None),
-                                    "label": getattr(data, 'label', None),
-                                    "fact_count": getattr(data, 'fact_count', None)
-                                }
-                                
-                                # If we have raw_sg, try to get the full original fact data
-                                if raw_sg is not None and g < len(raw_sg):
-                                    subgraph = raw_sg[g]
-                                    fact_list = subgraph.get('fact_list', [])
-                                    # Find the fact with matching fact_id
-                                    for orig_fact in fact_list:
-                                        if orig_fact.get('fact_id') == original_fact_id:
-                                            fact_data["original_fact"] = {
-                                                "fact_id": orig_fact.get('fact_id'),
-                                                "raw_text": orig_fact.get('raw_text'),
-                                                "date": orig_fact.get('date'),
-                                                "event_type": orig_fact.get('event_type'),
-                                                "sentiment": orig_fact.get('sentiment'),
-                                                "delta_days": orig_fact.get('delta_days'),
-                                                "tickers": orig_fact.get('tickers'),
-                                                "event_cluster_id": orig_fact.get('event_cluster_id'),
-                                                "source_article_index": orig_fact.get('source_article_index')
-                                            }
-                                            break
-                            
-                            all_results.append(fact_data)
-                            all_agg_rows.append(fact_data)
-                    
-                    except Exception as e:
-                        print(f"Error processing graph {g}: {e}")
-                        continue
-    
-    # Save comprehensive results
-    comprehensive_json = os.path.join(OUT_DIR, "comprehensive_explanations.json")
-    with open(comprehensive_json, "w", encoding="utf-8") as fj:
-        json.dump({
-            "metadata": {
-                "total_models": len(model_paths),
-                "total_predictions": len(all_results),
-                "topk": TOPK,
-                "generated_at": time.strftime("%Y-%m-%d %H:%M:%S")
-            },
-            "results": all_results
-        }, fj, indent=2)
-    
-    # Save aggregate CSV
-    agg_csv = os.path.join(OUT_DIR, "comprehensive_aggregate.csv")
+                        if raw_texts is None:
+                            return None
+                        if isinstance(raw_texts, list):
+                            return raw_texts[i]
+                        return None
+                    except Exception:
+                        return None
+
+                # Write per-graph CSV + JSON
+                out_prefix = os.path.join(OUT_DIR, f"graph_{batch_idx}_{g}")
+
+                import csv
+                csv_path = out_prefix + "_topk.csv"
+                with open(csv_path, "w", newline="", encoding="utf-8") as fcsv:
+                    wr = csv.writer(fcsv)
+                    wr.writerow(["graph_batch", "g_index", "true_label", "logit", "prob",
+                                 "rank", "fact_index", "influence", "alpha_edge_max", "sentiment", "second_attr", "snippet"])
+                    rank = 1
+                    for row in impact_rows:
+                        fact_i = row["fact_index"]
+                        infl = row["influence"]
+                        alpha_edges = [e["alpha_mean"] for e in row.get("edges", [])]
+                        sents = [e.get("sentiment", None) for e in row.get("edges", [])]
+                        seconds = [e.get("second_attr", None) for e in row.get("edges", [])]
+                        snippet = maybe_text(fact_i)
+                        wr.writerow([batch_idx, g, y_true, y_logit, y_prob,
+                                     rank, fact_i, infl,
+                                     max(alpha_edges) if alpha_edges else None,
+                                     sents[0] if sents else None,
+                                     seconds[0] if seconds else None,
+                                     snippet])
+                        rank += 1
+
+                json_path = out_prefix + "_detail.json"
+                with open(json_path, "w", encoding="utf-8") as fj:
+                    json.dump({
+                        "graph_batch": batch_idx,
+                        "g_index": g,
+                        "true_label": y_true,
+                        "logit": y_logit,
+                        "prob": y_prob,
+                        "topk": impact_rows
+                    }, fj, indent=2)
+
+                for rank, row in enumerate(impact_rows, start=1):
+                    agg_rows.append({
+                        "graph_batch": batch_idx,
+                        "g_index": g,
+                        "true_label": y_true,
+                        "logit": y_logit,
+                        "prob": y_prob,
+                        "rank": rank,
+                        "fact_index": row["fact_index"],
+                        "influence": row["influence"],
+                        "delta_prob": row.get("delta_prob", None)
+                    })
+
+    # Aggregate CSV
+    agg_csv = os.path.join(OUT_DIR, "aggregate_topk.csv")
     import csv
     with open(agg_csv, "w", newline="", encoding="utf-8") as fcsv:
-        if all_agg_rows:
-            fieldnames = list(all_agg_rows[0].keys())
-            wr = csv.DictWriter(fcsv, fieldnames=fieldnames)
-            wr.writeheader()
-            for r in all_agg_rows:
-                wr.writerow(r)
-    
-    print(f"\n✅ Comprehensive explanations written to: {OUT_DIR}")
-    print(f"     Comprehensive JSON: {comprehensive_json}")
+        wr = csv.DictWriter(fcsv, fieldnames=[
+            "graph_batch", "g_index", "true_label", "logit", "prob",
+            "rank", "fact_index", "influence", "delta_prob"
+        ])
+        wr.writeheader()
+        for r in agg_rows:
+            wr.writerow(r)
+
+    print(f"[OK] Explanations written to: {OUT_DIR}")
     print(f"     Aggregate CSV: {agg_csv}")
-    print(f"📊 Processed {len(model_paths)} models")
-    print(f"📊 Generated {len(all_results)} positive predictions")
-    print(f"📊 Top-{TOPK} facts per prediction")
 
 if __name__ == "__main__":
     main()

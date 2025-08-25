@@ -5,6 +5,8 @@ from time import sleep
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import config
+import matplotlib.pyplot as plt
+import numpy as np
 
 def create_pricing_db():
     """
@@ -603,6 +605,77 @@ def plot_average_pead_from_csv(
     plt.show()
 
 
+def plot_pricing_over_period(ticker: str, save_dir: str = "Plots/asset_price_graphs"):
+    """
+    Plot the pricing data for a given ticker over the entire available period.
+    Uses LaTeX formatting and saves the output to the specified directory.
+    
+    Args:
+        ticker: Stock ticker symbol (e.g., 'AAPL', 'MSFT')
+        save_dir: Directory to save the plot (default: "Plots/asset_price_graphs")
+    """
+    # Set up LaTeX formatting
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.serif": ["Computer Modern Roman"],
+        "text.latex.preamble": r"\usepackage{amsmath} \usepackage{amssymb}"
+    })
+    
+    # Connect to database and load data
+    conn = sqlite3.connect(config.DB_PATH)
+    try:
+        query = f"""
+            SELECT date, adjusted_close
+            FROM {config.PRICING_TABLE_NAME}
+            WHERE ticker = ?
+            ORDER BY date;
+        """
+        df = pd.read_sql_query(query, conn, params=(ticker,))
+    finally:
+        conn.close()
+    
+    if df.empty:
+        print(f"No data found for ticker {ticker} in the database.")
+        return
+    
+    # Prepare data
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values('date').reset_index(drop=True)
+    
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(14, 8))
+    
+    # Plot the price data
+    ax.plot(df['date'], df['adjusted_close'], linewidth=1.5, color='#1f77b4', label=None)
+    
+    # Customize the plot
+    ax.set_title(f'Historical Stock Price: {ticker}', fontsize=16, fontweight='bold')
+    ax.set_xlabel('Date', fontsize=12)
+    ax.set_ylabel('Adjusted Close Price (\$)', fontsize=12)
+    
+    # Format the axes
+    ax.grid(True, alpha=0.3)
+    ax.tick_params(axis='both', which='major', labelsize=10)
+    
+    # Rotate x-axis labels for better readability
+    plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+    
+
+    
+    # Tight layout to prevent label cutoff
+    plt.tight_layout()
+    
+    # Ensure the save directory exists
+    os.makedirs(save_dir, exist_ok=True)
+    
+    # Save the plot
+    save_path = os.path.join(save_dir, f"{ticker}.png")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"Plot saved to: {save_path}")
+    
+    # Show the plot
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -625,11 +698,15 @@ if __name__ == "__main__":
     #                 short_window_end=5,
     #                 medium_window_end=60)
 
-    plot_average_pead_from_csv(
-        surprises_csv="Data/eps_surprises_quarterly_2012_2024.csv",
-        short_window_end=10,
-        medium_window_end=60,
-        pre_event_days=20,
-        save_path="Plots/PEAD_demo/average_pead_plot.png"
-    )
+    # plot_average_pead_from_csv(
+    #     surprises_csv="Data/eps_surprises_quarterly_2012_2024.csv",
+    #     short_window_end=10,
+    #     medium_window_end=60,
+    #     pre_event_days=20,
+    #     save_path="Plots/PEAD_demo/average_pead_plot.png"
+    # )
+
+    plot_pricing_over_period(ticker="ACN", save_dir="Plots/asset_price_graphs")
+    plot_pricing_over_period(ticker="JPM", save_dir="Plots/asset_price_graphs")
+    plot_pricing_over_period(ticker="MGM", save_dir="Plots/asset_price_graphs")
 

@@ -543,7 +543,10 @@ def init_lazy_params(model: nn.Module, sample_batch: HeteroData, device: torch.d
     # Debug: Check model device
     print(f"[DEBUG] Model device check:")
     print(f"  Model device: {next(model.parameters()).device}")
-    print(f"  Edge builder lambda_decay device: {model.edge_builder.lambda_decay.device}")
+    if hasattr(model, 'edge_builder'):
+        print(f"  Edge builder lambda_decay device: {model.edge_builder.lambda_decay.device}")
+    else:
+        print(f"  Model does not have edge_builder attribute")
     
     _ = model(sample_batch)
 
