@@ -42,7 +42,7 @@ CONFIG = {
 
 # === IMPORT YOUR MODEL HERE ===
 # Change this import to match your repository structure.
-from model_gnn5 import HeteroAttnGNN  # <-- UPDATE THIS IMPORT
+from HeteroGNN5 import HeteroAttnGNN  # <-- UPDATE THIS IMPORT
 # ==============================
 
 
