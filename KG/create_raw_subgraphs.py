@@ -14,6 +14,9 @@ import sqlite3
 
 # ---------- Utilities ----------
 def _parse_date(s: str) -> datetime.date:
+    # Skip malformed dates by raising ValueError
+    if len(s) != 10 or s[4] != '-' or s[7] != '-':
+        raise ValueError(f"Malformed date format: {s}")
     return datetime.strptime(s, "%Y-%m-%d").date()
 
 
@@ -48,24 +51,31 @@ def load_facts(jsonl_path: str, sentiment_min: float) -> pd.DataFrame:
       raw_text, source_article_index, event_cluster_id (if present)
     """
     rows: List[Dict[str, Any]] = []
+    skipped_count = 0
     with open(jsonl_path, "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
             r = json.loads(line)
             s = float(r.get("sentiment", 0.0))
             if abs(s) < sentiment_min:
                 continue
-            d = _parse_date(r["date"])
-            rows.append({
-                "fact_id": i,                                 # stable id
-                "date": r["date"],                            # original string
-                "date_ordinal": d.toordinal(),
-                "tickers": list(r.get("tickers", [])),
-                "sentiment": s,
-                "event_type": r.get("event_type", ""),
-                "raw_text": r.get("raw_text"),
-                "source_article_index": r.get("source_article_index"),
-                "event_cluster_id": r.get("event_cluster_id", None),  # <-- carry if annotated
-            })
+            try:
+                d = _parse_date(r["date"])
+                rows.append({
+                    "fact_id": i,                                 # stable id
+                    "date": r["date"],                            # original string
+                    "date_ordinal": d.toordinal(),
+                    "tickers": list(r.get("tickers", [])),
+                    "sentiment": s,
+                    "event_type": r.get("event_type", ""),
+                    "raw_text": r.get("raw_text"),
+                    "source_article_index": r.get("source_article_index"),
+                    "event_cluster_id": r.get("event_cluster_id", None),  # <-- carry if annotated
+                })
+            except ValueError as e:
+                skipped_count += 1
+                if skipped_count <= 5:  # Only print first 5 errors
+                    print(f"Skipping malformed date: {e}")
+                continue
     facts = pd.DataFrame(rows)
     if facts.empty:
         facts = pd.DataFrame(columns=[
@@ -74,6 +84,8 @@ def load_facts(jsonl_path: str, sentiment_min: float) -> pd.DataFrame:
         ])
     # Keep fact_id as index + column for fast .loc and stable ids
     facts = facts.set_index("fact_id", drop=False)
+    if skipped_count > 0:
+        print(f"Skipped {skipped_count} rows with malformed dates")
     return facts
 
 
