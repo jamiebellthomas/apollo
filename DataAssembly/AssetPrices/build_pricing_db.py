@@ -606,7 +606,7 @@ def plot_average_pead_from_csv(
 
 
 if __name__ == "__main__":
-    # create_pricing_db()
+    create_pricing_db()
     # print("[INFO] Pricing database build complete.")
     # Example usage of look_up_pricing
 
@@ -617,7 +617,7 @@ if __name__ == "__main__":
     TICKER = 'AAPL'
     ANNOUNCE_DATE = '2023-03-31'
 
-    date_range = make_dates(ANNOUNCE_DATE)
+    # date_range = make_dates(ANNOUNCE_DATE)
     # look_up_pricing_abnormal(ticker=TICKER, 
     #                 start_date=date_range[0], 
     #                 end_date=date_range[1],
@@ -625,11 +625,11 @@ if __name__ == "__main__":
     #                 short_window_end=5,
     #                 medium_window_end=60)
 
-    plot_average_pead_from_csv(
-        surprises_csv="Data/eps_surprises_quarterly_2012_2024.csv",
-        short_window_end=10,
-        medium_window_end=60,
-        pre_event_days=20,
-        save_path="Plots/PEAD_demo/average_pead_plot.png"
-    )
+    # plot_average_pead_from_csv(
+    #     surprises_csv="Data/eps_surprises_quarterly_2012_2024.csv",
+    #     short_window_end=10,
+    #     medium_window_end=60,
+    #     pre_event_days=20,
+    #     save_path="Plots/PEAD_demo/average_pead_plot.png"
+    # )
 
