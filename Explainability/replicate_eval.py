@@ -67,42 +67,103 @@ def split_list(dataset, train_ratio=0.7, val_ratio=0.15, seed=42):
 @torch.no_grad()
 def evaluate(model, loader, device, threshold=0.5, capture_attention=False):
     model.eval()
+
+    # hard-disable any stochasticity that might still be active in eval
+    for attr in ("edge_dropout", "feature_dropout", "final_dropout"):
+        if hasattr(model, attr):
+            setattr(model, attr, 0.0)
+    for attr in ("sentiment_jitter_std", "delta_t_jitter_frac"):
+        if hasattr(model, attr):
+            setattr(model, attr, 0.0)
+
     total, correct = 0, 0
     y_all, p_all = [], []
-    attention_data = []
-    graph_metadata = []
-    
+
+    per_sample_attn = []  # list aligned with dataset order if capture_attention
+
+    if capture_attention:
+        from HeteroGNN5Explainer import AttnCapture
+
     for batch_idx, batch in enumerate(loader):
         batch = batch.to(device)
-        
+
         if capture_attention:
-            # Install attention capture
-            from HeteroGNN5Explainer import AttnCapture
+            # fresh capturer per batch guarantees a clean buffer
             attn_capture = AttnCapture(model)
             attn_capture.install()
-        
+
         logits = model(batch)
-        probs = torch.sigmoid(logits)
-        preds = (probs >= threshold).long()
-        y = batch.y.long()
+        probs  = torch.sigmoid(logits)
+        preds  = (probs >= threshold).long()
+        y      = batch.y.long()
+
         correct += (preds == y).sum().item()
-        total += y.numel()
+        total   += y.numel()
         y_all.append(y.cpu())
         p_all.append(probs.cpu())
-        
+
         if capture_attention:
-            # Get attention weights
-            batch_attention = attn_capture.pop()
+            # expected: a list of length = batch_size
+            # each item: list over layers; each layer: dict keyed by edge-type
+            batch_caps = attn_capture.pop()
             attn_capture.uninstall()
-            
-            # Process attention data for each graph in batch
-            for graph_idx, attn in enumerate(batch_attention):
-                attention_data.append({
-                    "edge_index": attn["edge_index"],
-                    "alpha": attn["alpha"], 
-                    "batch_idx": batch_idx,
-                    "graph_idx": graph_idx
-                })
+
+            # normalize to CPU numpy for downstream
+            # we want per-sample list-of-layers dicts
+            for g_caps in batch_caps:
+                # g_caps: dict with 'edge_index' and 'alpha' keys
+                if isinstance(g_caps, dict) and 'edge_index' in g_caps and 'alpha' in g_caps:
+                    # This is the old flat structure - convert to new format
+                    eidx = g_caps["edge_index"]
+                    alpha = g_caps["alpha"]
+                    if isinstance(eidx, torch.Tensor):  eidx  = eidx.detach().cpu().numpy()
+                    if isinstance(alpha, torch.Tensor): alpha = alpha.detach().cpu().numpy()
+
+                    # sanity: shape agreement
+                    E = eidx.shape[1]
+                    if alpha.ndim == 2:  # [E, H]
+                        assert alpha.shape[0] == E, f"alpha[E,H] rows != edges: {alpha.shape} vs {eidx.shape}"
+                    else:  # [E]
+                        assert alpha.shape[0] == E, f"alpha[E] len != edges: {alpha.shape} vs {eidx.shape}"
+
+                    # Create a single layer with the fact->company edge type
+                    norm_layer = {
+                        ('fact', 'mentions', 'company'): {
+                            "edge_index": eidx,
+                            "alpha": alpha,
+                            "src_type": "fact",
+                            "dst_type": "company",
+                        }
+                    }
+                    norm_layers = [norm_layer]  # Single layer
+                else:
+                    # This is the expected new structure
+                    norm_layers = []
+                    for layer_idx, layer in enumerate(g_caps):
+                        if isinstance(layer, dict):
+                            norm_layer = {}
+                            for et_key, payload in layer.items():
+                                # payload expected keys: edge_index, alpha, src_type, dst_type
+                                eidx = payload["edge_index"]
+                                alpha = payload["alpha"]
+                                if isinstance(eidx, torch.Tensor):  eidx  = eidx.detach().cpu().numpy()
+                                if isinstance(alpha, torch.Tensor): alpha = alpha.detach().cpu().numpy()
+
+                                # sanity: shape agreement
+                                E = eidx.shape[1]
+                                if alpha.ndim == 2:  # [E, H]
+                                    assert alpha.shape[0] == E, f"alpha[E,H] rows != edges: {alpha.shape} vs {eidx.shape}"
+                                else:  # [E]
+                                    assert alpha.shape[0] == E, f"alpha[E] len != edges: {alpha.shape} vs {eidx.shape}"
+
+                                norm_layer[tuple(et_key)] = {
+                                    "edge_index": eidx,
+                                    "alpha": alpha,
+                                    "src_type": payload.get("src_type"),
+                                    "dst_type": payload.get("dst_type"),
+                                }
+                            norm_layers.append(norm_layer)
+                per_sample_attn.append(norm_layers)
     
     acc = correct / max(total, 1)
     from sklearn.metrics import roc_auc_score, f1_score, confusion_matrix
@@ -133,8 +194,7 @@ def evaluate(model, loader, device, threshold=0.5, capture_attention=False):
     }
     
     if capture_attention:
-        result["attention_weights"] = attention_data
-        result["graph_metadata"] = graph_metadata
+        result["attention_weights"] = per_sample_attn  # 1:1 with dataset order
     
     return result
 
@@ -406,15 +466,13 @@ def replicate_evaluation(model_dir: str):
     print(f"  Original: {original_metrics.get('f1', 'N/A'):.4f}")
     print(f"  Ours:     {metrics['f1']:.4f}")
     
-    # Conditionally capture attention weights if reproduction is good enough
-    attention_weights = None
-    if reproduction_accuracy < 8:
-        print(f"\nReproduction accuracy {reproduction_accuracy} < 8, capturing attention weights...")
-        attention_metrics = evaluate(model, test_loader, device, threshold=th, capture_attention=True)
-        attention_weights = attention_metrics.get("attention_weights")
-        print(f"Captured attention weights for {len(attention_weights) if attention_weights else 0} graphs")
-    else:
-        print(f"\nReproduction accuracy {reproduction_accuracy} >= 8, skipping attention capture")
+    # Always capture attention weights for explainability
+    print(f"\nCapturing attention weights for explainability analysis...")
+    # Create a single-sample data loader to capture attention for all samples
+    single_sample_loader = DataLoader(test_graphs, batch_size=1, shuffle=False)
+    attention_metrics = evaluate(model, single_sample_loader, device, threshold=th, capture_attention=True)
+    attention_weights = attention_metrics.get("attention_weights")
+    print(f"Captured attention weights for {len(attention_weights) if attention_weights else 0} graphs")
     
     return {
         "model_dir": model_dir,
