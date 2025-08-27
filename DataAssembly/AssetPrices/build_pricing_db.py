@@ -531,9 +531,9 @@ def plot_average_pead_from_csv(
     ax.axvline(0, linestyle="--", color="grey", linewidth=1, label=r"Announcement (Day 0)")
 
     # Shade windows (use light greys so lines stay clear)
-    ax.axvspan(0, short_window_end, alpha=0.10, color="lightblue",
+    ax.axvspan(0, short_window_end, alpha=0.15, color="lightblue",
             label=rf"Short window (0–{short_window_end}d)")
-    ax.axvspan(short_window_end, medium_window_end, alpha=0.10, color="lightgreen",
+    ax.axvspan(short_window_end, medium_window_end, alpha=0.15, color="lightgreen",
             label=rf"Medium window ({short_window_end}–{medium_window_end}d)")
 
     def slope_anchored(x, y, i0, i1):
@@ -698,15 +698,15 @@ if __name__ == "__main__":
     #                 short_window_end=5,
     #                 medium_window_end=60)
 
-    # plot_average_pead_from_csv(
-    #     surprises_csv="Data/eps_surprises_quarterly_2012_2024.csv",
-    #     short_window_end=10,
-    #     medium_window_end=60,
-    #     pre_event_days=20,
-    #     save_path="Plots/PEAD_demo/average_pead_plot.png"
-    # )
+    plot_average_pead_from_csv(
+        surprises_csv="Data/eps_surprises_quarterly_2012_2024.csv",
+        short_window_end=15,
+        medium_window_end=60,
+        pre_event_days=20,
+        save_path="Plots/PEAD_demo/average_pead_plot.png"
+    )
 
-    plot_pricing_over_period(ticker="ACN", save_dir="Plots/asset_price_graphs")
-    plot_pricing_over_period(ticker="JPM", save_dir="Plots/asset_price_graphs")
-    plot_pricing_over_period(ticker="MGM", save_dir="Plots/asset_price_graphs")
+    # plot_pricing_over_period(ticker="ACN", save_dir="Plots/asset_price_graphs")
+    # plot_pricing_over_period(ticker="JPM", save_dir="Plots/asset_price_graphs")
+    # plot_pricing_over_period(ticker="MGM", save_dir="Plots/asset_price_graphs")
 
