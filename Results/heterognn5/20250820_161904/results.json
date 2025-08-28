@@ -1,0 +1,1171 @@
+{
+  "model_type": "heterognn5",
+  "test_metrics": {
+    "acc": 0.7842105263157895,
+    "loss": 0.01297607515987597,
+    "auc": 0.7211724445766999,
+    "tp": 14,
+    "tn": 135,
+    "fp": 8,
+    "fn": 33,
+    "precision": 0.6363636363636364,
+    "recall": 0.2978723404255319,
+    "f1": 0.40579710144927533,
+    "pred_0": 168,
+    "pred_1": 22,
+    "true_0": 143,
+    "true_1": 47,
+    "prob_mean": 0.47199690341949463,
+    "prob_std": 0.1910150647163391,
+    "prob_min": 0.08413583785295486,
+    "prob_max": 0.9099847674369812,
+    "raw_predictions": [
+      {
+        "probability": 0.6926699280738831,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.2114250808954239,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5684163570404053,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.44239336252212524,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3650191128253937,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.37191978096961975,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5736149549484253,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5831219553947449,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6472228765487671,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6770305633544922,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4839777946472168,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.8016777634620667,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.7273553609848022,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.8022873401641846,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.834679126739502,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.8567484021186829,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.4321238696575165,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5253731608390808,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6674207448959351,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.31789225339889526,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.47028279304504395,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.41939303278923035,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.35523104667663574,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.08413583785295486,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4085024297237396,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.32263314723968506,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6428771615028381,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4784604012966156,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7027150988578796,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.38466888666152954,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.677294135093689,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.8213507533073425,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.2291574627161026,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3320063352584839,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5855866074562073,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4701886773109436,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.17740358412265778,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6312899589538574,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5281721353530884,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4148969352245331,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5043877363204956,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.36880603432655334,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.639270544052124,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.1665799915790558,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.30682575702667236,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.20589372515678406,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.10798358172178268,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.29095539450645447,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5119779109954834,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7684524059295654,
+        "actual_label": 0,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.35626256465911865,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5617914795875549,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3106280267238617,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5065164566040039,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4276634752750397,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.22366417944431305,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5639451742172241,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5441016554832458,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.42242467403411865,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5075820684432983,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4374874234199524,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.9099847674369812,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.21095076203346252,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3293471038341522,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6406234502792358,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6416722536087036,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5439972281455994,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3587963283061981,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.30665239691734314,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6727476119995117,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5480165481567383,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6392080187797546,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.8405776619911194,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.4485894441604614,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5295107364654541,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5409172177314758,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6757389307022095,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.8535664677619934,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.5199882984161377,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.32086464762687683,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3839750587940216,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.33646613359451294,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4035431444644928,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.49974524974823,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7859588265419006,
+        "actual_label": 0,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.14734044671058655,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.481059730052948,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.42432060837745667,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.30178090929985046,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.35260337591171265,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.46725788712501526,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5121375322341919,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.634732186794281,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7571461200714111,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.29951202869415283,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7801206111907959,
+        "actual_label": 0,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.7792887687683105,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.4924428164958954,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3315669894218445,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5470749735832214,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4541952311992645,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.21986393630504608,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3343890309333801,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.43490782380104065,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.31575533747673035,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.15869750082492828,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.10084302723407745,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.31182724237442017,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6360143423080444,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.1752227246761322,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.18395733833312988,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6530171036720276,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5243523716926575,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.48546865582466125,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3534863591194153,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3918038010597229,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4097161591053009,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.11375533789396286,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.19635070860385895,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5101411938667297,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6891043782234192,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4733406901359558,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4480911195278168,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.45777711272239685,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4419441521167755,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.757386326789856,
+        "actual_label": 0,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.6035652756690979,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.24260923266410828,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.49671685695648193,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3677043616771698,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.40989962220191956,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.46827441453933716,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7202758193016052,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6811532378196716,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.2777687609195709,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.33228161931037903,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7805631756782532,
+        "actual_label": 0,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.6963781714439392,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.429855614900589,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4286838471889496,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.187909334897995,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5429430603981018,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3287431597709656,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.284929484128952,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.27311402559280396,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7857707738876343,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.6224697828292847,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.495371013879776,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.443204790353775,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.1964246779680252,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5253210663795471,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.2056942880153656,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.8241358995437622,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.36122485995292664,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.1034470871090889,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.593399703502655,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.2716144621372223,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.26288068294525146,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.4940241873264313,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.2403431087732315,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.46542221307754517,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.183044895529747,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6632698774337769,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6955858469009399,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7610389590263367,
+        "actual_label": 0,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.5693284273147583,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.8778342604637146,
+        "actual_label": 0,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.43677523732185364,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7670942544937134,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.4257388412952423,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.30321064591407776,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.525538980960846,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.39822274446487427,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.2824399173259735,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.40020033717155457,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.3953936994075775,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.7504555583000183,
+        "actual_label": 1,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.7494546175003052,
+        "actual_label": 0,
+        "predicted_label": 1
+      },
+      {
+        "probability": 0.694402277469635,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5032348036766052,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.48321259021759033,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.1829575002193451,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.5346587300300598,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.19333221018314362,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.30448517203330994,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.39392220973968506,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.27397775650024414,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.59123295545578,
+        "actual_label": 0,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.6175482273101807,
+        "actual_label": 1,
+        "predicted_label": 0
+      },
+      {
+        "probability": 0.34465694427490234,
+        "actual_label": 0,
+        "predicted_label": 0
+      }
+    ]
+  },
+  "training_history": {
+    "train_loss": [
+      0.9882861921953601,
+      0.9712353501208993,
+      0.9647215815477593,
+      0.9594577057417049,
+      0.9494403836339019,
+      0.9415602534316306,
+      0.9320660022802131,
+      0.9296296931976495,
+      0.9209218161050663,
+      0.9160294172375701,
+      0.9120158492132675,
+      0.9092357882233553,
+      0.8940397825351981,
+      0.8992008156554644,
+      0.8945158154465431,
+      0.8822844466497731,
+      0.8820202569628871,
+      0.8792977152868758,
+      0.873861363045005,
+      0.8672848122064457,
+      0.870255882518236,
+      0.8615577071212058,
+      0.8519598248393037,
+      0.8527636480885883,
+      0.84663197633832,
+      0.8348300978194836,
+      0.835318006471146,
+      0.8326000191444575,
+      0.8201400853866755,
+      0.8212558283362278,
+      0.8148760410242303,
+      0.8122829562009767,
+      0.8154269187949424,
+      0.8035130220790242,
+      0.7976632839025453,
+      0.8017647790354352,
+      0.793945831199025,
+      0.7887880361357401,
+      0.7875272423722023,
+      0.7811074475909389,
+      0.7767697946969853,
+      0.774577994124834,
+      0.7732260690178983,
+      0.7723537331403688,
+      0.7616603876269141,
+      0.7656477814496949
+    ],
+    "val_loss": [
+      0.018497697419898453,
+      0.018337929248809816,
+      0.018253275405528933,
+      0.018162181211072347,
+      0.018117668185123177,
+      0.01803011977395346,
+      0.018007720625677775,
+      0.01791715150655702,
+      0.017939924362093903,
+      0.01785443439040073,
+      0.017802324683167215,
+      0.01777958121410636,
+      0.017738408820573672,
+      0.017783201572506926,
+      0.017744246194528978,
+      0.017750938825829083,
+      0.017735446053881977,
+      0.01761666508608086,
+      0.01758194690526918,
+      0.01756092531736507,
+      0.017530535819918612,
+      0.017535624393196992,
+      0.017546428913293884,
+      0.017569218957146932,
+      0.017540920889654824,
+      0.017511384708936824,
+      0.01754321248032326,
+      0.017540033750755843,
+      0.017538274720657703,
+      0.01756026412165442,
+      0.01753264998280725,
+      0.017532052550204964,
+      0.017513903628948124,
+      0.017445109611333803,
+      0.01749720712040746,
+      0.017504045575164086,
+      0.0175318673599598,
+      0.017533884214800458,
+      0.017591294022493584,
+      0.017534008414246315,
+      0.017492948021999626,
+      0.01752856914387193,
+      0.01752069966737614,
+      0.017481560762538467,
+      0.017613944896431855,
+      0.017735837226690247
+    ],
+    "val_acc": [
+      0.5069767441860465,
+      0.5906976744186047,
+      0.6,
+      0.5581395348837209,
+      0.5627906976744186,
+      0.5581395348837209,
+      0.5627906976744186,
+      0.5581395348837209,
+      0.5767441860465117,
+      0.5906976744186047,
+      0.5581395348837209,
+      0.6,
+      0.6,
+      0.5767441860465117,
+      0.6139534883720931,
+      0.5953488372093023,
+      0.5813953488372093,
+      0.5767441860465117,
+      0.6093023255813953,
+      0.5813953488372093,
+      0.627906976744186,
+      0.5906976744186047,
+      0.6139534883720931,
+      0.6186046511627907,
+      0.6093023255813953,
+      0.627906976744186,
+      0.627906976744186,
+      0.6186046511627907,
+      0.6372093023255814,
+      0.6232558139534884,
+      0.627906976744186,
+      0.641860465116279,
+      0.6372093023255814,
+      0.6325581395348837,
+      0.6372093023255814,
+      0.6372093023255814,
+      0.6372093023255814,
+      0.6372093023255814,
+      0.627906976744186,
+      0.627906976744186,
+      0.6372093023255814,
+      0.641860465116279,
+      0.6372093023255814,
+      0.6232558139534884,
+      0.641860465116279,
+      0.6372093023255814
+    ],
+    "val_auc": [
+      0.5733650662251656,
+      0.6003725165562913,
+      0.6021316225165563,
+      0.6078228476821192,
+      0.6115480132450332,
+      0.623033940397351,
+      0.6241721854304636,
+      0.6324503311258277,
+      0.6315190397350994,
+      0.6397971854304635,
+      0.6409354304635762,
+      0.648282284768212,
+      0.6501448675496689,
+      0.6478683774834437,
+      0.6534561258278146,
+      0.6504552980132451,
+      0.65221440397351,
+      0.6591473509933775,
+      0.6645281456953643,
+      0.6654594370860927,
+      0.6688741721854304,
+      0.6672185430463575,
+      0.6686672185430464,
+      0.6684602649006622,
+      0.6706332781456954,
+      0.6749793046357616,
+      0.6746688741721855,
+      0.6764279801324503,
+      0.6774627483443708,
+      0.6765314569536423,
+      0.6788079470198675,
+      0.6803600993377483,
+      0.6810844370860928,
+      0.6839817880794702,
+      0.6849130794701986,
+      0.6844991721854305,
+      0.6840852649006622,
+      0.6873965231788078,
+      0.6827400662251656,
+      0.6855339403973509,
+      0.6891556291390728,
+      0.6871895695364238,
+      0.6882243377483444,
+      0.689569536423841,
+      0.687396523178808,
+      0.6865687086092717
+    ]
+  },
+  "best_epoch": 34,
+  "timestamp": "2025-08-20T16:28:14.615105"
+}

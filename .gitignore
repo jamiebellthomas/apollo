@@ -4,7 +4,7 @@ Data/nasdaq_exteral_data.csv
 passwords.txt
 *.db
 *.log
-*.json
+
 .env
 /SEC_Downloads/
 /sec-edgar-filings/
