@@ -14,17 +14,11 @@ Data/news_formatted_rows_clean.csv
 backup/news_associated_tickers.csv
 venv
 *.html
-/Results/heterognn/2*
-/Results/heterognn/s*
-/Results/heterognn2/2*
-/Results/heterognn2/s*
-/Results/heterognn3/2*
-/Results/heterognn3/s*
-/Results/heterognn4_256/2*
-/Results/heterognn4_256/s*
-/Results/heterognn4_1024/2*
-/Results/heterognn4_1024/s*
-/Results/
+/Results/heterognn/
+/Results/heterognn2/
+/Results/heterognn3/
+/Results/heterognn4/
+
 /ResultsLegacy/
 /heterognn4_256/
 
