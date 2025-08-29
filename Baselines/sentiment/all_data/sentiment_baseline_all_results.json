@@ -19,5 +19,8 @@
   "true_positives": 972,
   "true_negatives": 2217,
   "false_positives": 2472,
-  "false_negatives": 227
+  "false_negatives": 227,
+  "auc": 0.641742132092376,
+  "tpr": 0.810675562969141,
+  "fpr": 0.527191298784389
 }

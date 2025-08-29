@@ -1,0 +1,14 @@
+Performance Metrics for 20250820_124350
+==================================================
+
+Accuracy:  0.8053
+Precision: 0.7500
+Recall:    0.3191
+F1-Score:  0.4478
+
+Confusion Matrix:
+--------------------
+                Predicted
+                0    1
+Actual 0     138    5
+       1      32   15

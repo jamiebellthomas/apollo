@@ -43,7 +43,7 @@ BENCHMARK_TICKER = "SPY"
 SAVE_PLOT_PATH = "Plots/results/"
 
 # Option 2: Results folder mode (reads from test_predictions.csv)
-RESULTS_FOLDER = "Results/heterognn/20250814_182224_best"  # Path to results folder
+RESULTS_FOLDER = "Results/heterognn5/20250820_124350"  # Path to results folder
 PREDICTIONS_FILE = "test_predictions.csv"   # Name of predictions file
 
 # Option 3: EPS Surprises analysis

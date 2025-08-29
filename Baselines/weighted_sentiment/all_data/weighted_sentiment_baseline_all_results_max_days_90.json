@@ -1,0 +1,27 @@
+{
+  "accuracy": 0.5485733695652174,
+  "precision": 0.28046945531146555,
+  "recall": 0.7773144286905754,
+  "f1_score": 0.4122069880583812,
+  "confusion_matrix": [
+    [
+      2298,
+      2391
+    ],
+    [
+      267,
+      932
+    ]
+  ],
+  "total_samples": 5888,
+  "max_days": 90,
+  "positive_predictions": 3323,
+  "negative_predictions": 2565,
+  "true_positives": 932,
+  "true_negatives": 2298,
+  "false_positives": 2391,
+  "false_negatives": 267,
+  "auc": 0.6336988010375462,
+  "tpr": 0.7773144286905754,
+  "fpr": 0.5099168266154831
+}

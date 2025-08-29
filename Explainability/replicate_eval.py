@@ -190,7 +190,8 @@ def evaluate(model, loader, device, threshold=0.5, capture_attention=False):
         "prob_min": float(y_prob.min()),
         "prob_max": float(y_prob.max()),
         "y_true": y_true,
-        "y_prob": y_prob
+        "y_prob": y_prob,
+        "y_pred": preds
     }
     
     if capture_attention:
@@ -482,7 +483,8 @@ def replicate_evaluation(model_dir: str):
         "our_metrics": metrics,
         "original_cm": original_cm,
         "our_cm": our_cm,
-        "attention_weights": attention_weights
+        "attention_weights": attention_weights,
+        "y_pred": metrics.get('y_pred', [])
     }
 
 

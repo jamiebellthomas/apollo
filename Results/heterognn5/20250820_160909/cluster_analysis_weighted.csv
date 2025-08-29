@@ -1,0 +1,61 @@
+cluster_id,fact_count,cluster_proportion,avg_attention_score,std_attention_score,weighted_attention_score,avg_sentiment,std_sentiment,sample_event_types
+53,4165,0.160687,0.038844,0.14949,0.006242,0.52872,0.431169,cryptocurrency_market_fluctuation; cryptocurrency_market_movement; cryptocurrency_price_movement; market_analysis; market_commentary
+34,2547,0.098264,0.042162,0.15212,0.004143,0.237574,0.4308,industrial_policy; industry_analysis; industry_challenges; industry_concerns; industry_context
+59,1602,0.061806,0.065877,0.218709,0.004072,-0.008146,0.311991,etf_analysis; etf_comparison; etf_composition; etf_description; etf_focus
+2,1538,0.059336,0.068351,0.189516,0.004056,0.58212,0.205987,blockchain_partnership; collaboration; industry_partnership; investment_partnership; partnership
+4,3353,0.12936,0.026121,0.126975,0.003379,0.340382,0.479495,activist_investor; alternative_investment; cryptocurrency_investment; esg_investing; hedge_fund_activity
+17,1534,0.059182,0.054383,0.146519,0.003218,0.379361,0.391041,acquisition_and_earnings_announcement; earnings_and_sales_report; earnings_announcement; earnings_announcement_and_acquisition; earnings_announcement_and_analyst_upgrade
+10,1768,0.06821,0.046225,0.181634,0.003153,0.246324,0.38674,analyst_comment; analyst_commentary; analyst_coverage; analyst_coverage_initiation; analyst_downgrade
+51,676,0.02608,0.087654,0.181661,0.002286,-0.28713,0.389314,competition; competition_analysis; competition_and_privacy_changes; competition_expansion; competition_performance
+1,576,0.022222,0.096021,0.230641,0.002134,0.338368,0.230797,comparable_analysis; comparative_analysis; comparison; competitive_benchmarking; competitive_comparison
+32,857,0.033063,0.054615,0.170049,0.001806,0.380863,0.520598,cyclical_stock_analysis; financial_analysis; former_penny_stocks; growth_stock_analysis; growth_stock_evaluation
+6,578,0.022299,0.077203,0.211877,0.001722,0.393945,0.226714,business_update_and_dividend_growth; dividend_adjustment; dividend_analysis; dividend_announcement; dividend_announcement_and_share_repurchase
+15,522,0.020139,0.056401,0.158374,0.001136,0.559962,0.205355,acquisition; acquisition_analysis; acquisition_and_dividend; acquisition_and_expansion; acquisition_and_partnership
+29,205,0.007909,0.141902,0.223643,0.001122,0.71439,0.161019,brand_performance; brand_recognition; counterfeit_product_removal; product_adoption; product_demand
+9,288,0.011111,0.074197,0.143695,0.000824,-0.021007,0.767041,acquisitions_and_earnings_growth; earnings_analysis; earnings_and_demand_update; earnings_and_financials; earnings_and_rating_upgrade
+37,414,0.015972,0.05087,0.177629,0.000812,0.419807,0.299668,competitive_jab; congressional_hearing; crisis_management; criticism; election_impact
+38,91,0.003511,0.190811,0.236222,0.00067,0.474725,0.348101,bearish_outlook; economic_forecast; economic_outlook; investment_outlook; long_term_outlook
+33,150,0.005787,0.115709,0.257902,0.00067,0.523,0.463128,added_position; added_positions; blue_chip_classification; breakout; cloud_transition
+40,302,0.011651,0.0567,0.18878,0.000661,-0.239735,0.436206,asset_management_update; asset_under_management_update; assets_under_management_update; brokerage_update; brokerage_upgrade
+55,109,0.004205,0.156673,0.239822,0.000659,0.144037,0.390114,regulatory_action; regulatory_announcement; regulatory_approval; regulatory_call; regulatory_challenge
+22,282,0.01088,0.052946,0.170111,0.000576,0.498227,0.265839,ceo_appointment; executive_appointment; executive_background; executive_change; executive_commentary
+0,83,0.003202,0.143693,0.200498,0.00046,0.760241,0.184939,business_growth; customer_growth; growth_acceleration; growth_and_dividend; growth_and_value_opportunity
+47,102,0.003935,0.111887,0.185087,0.00044,0.257843,0.327928,executive_expectations_and_valuation; market_valuation; stock_valuation; undervaluation; undervaluation_analysis
+42,101,0.003897,0.105281,0.209984,0.00041,-0.136634,0.525342,investment_and_partnership; partnership_acquisition; partnership_and_certifications; partnership_and_competition; partnership_and_expansion
+48,331,0.01277,0.031948,0.150677,0.000408,0.438671,0.25501,initial_public_offering; ipo_announcement; ipo_funding; ipo_impact; ipo_investment
+23,75,0.002894,0.138919,0.180243,0.000402,0.38,0.42269,businessSuspension; business_delegation; business_failure; business_model; business_model_analysis
+50,1616,0.062346,0.006266,0.060854,0.000391,0.877537,0.096262,adoption; award_recognition; client_adoption; conference_discussion; conference_participation
+25,32,0.001235,0.315836,0.314011,0.00039,-0.5375,0.32476,consumer_spending_decrease; economic_downturn; housing_start_decline; industry_slowdown; market_decline
+16,91,0.003511,0.109833,0.270854,0.000386,0.435165,0.352814,capital_increase_approval; capital_plan_announcement; capital_plan_approval; capital_raise_consideration; capital_return_plan
+24,99,0.003819,0.098614,0.214856,0.000377,0.147475,0.326705,currency_headwinds; economic_commentary; economic_policy_impact; federal_reserve_announcement; federal_reserve_intervention
+36,29,0.001119,0.28219,0.2854,0.000316,0.303448,0.438243,asset_divestiture; asset_sale; buyout_interest; divestment; divesture
+14,38,0.001466,0.186902,0.233805,0.000274,0.286842,0.460647,acquisition_rumor; acquisition_rumors; company_breakup; company_controversy; divestiture
+28,38,0.001466,0.169209,0.291519,0.000248,0.565789,0.335038,analyst_rating; brand_loyalty_ranking; guru_rating; investment_rating; neutral_rating
+52,453,0.017477,0.014061,0.103472,0.000246,0.395364,0.332693,catastrophe_loss_estimate; data_security_concerns; insurance_claims_improvement; natural_disaster; natural_disaster_impact
+46,64,0.002469,0.092519,0.236487,0.000228,0.589062,0.354047,profit_margin_increase; profitability_outlook; reduced_profit_forecast; revenue_forecast; revenue_growth
+13,24,0.000926,0.241771,0.281387,0.000224,-0.4,0.498331,antitrust_investigation_closure; counterfeiting_scheme; court_ruling; dispute_resolution; human_rights_hearing
+20,38,0.001466,0.151988,0.134927,0.000223,0.576316,0.253848,adoption_expansion; benefit_expansion; business_expansion; delivery_expansion; expansion
+57,26,0.001003,0.186472,0.212174,0.000187,0.461538,0.352002,business_restart; business_restart_plan; business_restructuring; business_resumption; business_strategy_shift
+49,17,0.000656,0.283987,0.263407,0.000186,-0.458824,0.42573,brexit_impact; export_restrictions; geopolitical_event; geopolitical_risk; geopolitical_tensions
+27,39,0.001505,0.118879,0.249393,0.000179,0.3,0.337411,index_composition; index_construction; index_inclusion; index_movement; market_index_movement
+43,17,0.000656,0.266245,0.151624,0.000175,0.576471,0.385821,government_incentive; government_incentives; government_initiative; government_subsidy; legislation_passage
+31,22,0.000849,0.174051,0.226514,0.000148,0.45,0.528075,after_hours_trading; bullish_trade; insider_buying; oversold_condition; pre_market_trading
+5,13,0.000502,0.28047,0.22372,0.000141,0.207692,0.54273,demand_supply_mismatch; production_challenges; production_milestone; production_miss; supply_agreement
+26,15,0.000579,0.240672,0.24522,0.000139,0.06,0.417612,bankruptcy; bond_issuance; bond_issue; bond_sale; debt_analysis
+54,89,0.003434,0.037558,0.156526,0.000129,0.14382,0.227322,credit_agreement; credit_card_promotion; credit_card_switch; credit_quality_concerns; credit_rating_change
+21,12,0.000463,0.265655,0.276751,0.000123,-0.233333,0.534374,advertising_pause; company_response; contract_loss; customer_loss; operations_resumption
+45,11,0.000424,0.281934,0.313086,0.00012,0.236364,0.699705,innovation_hub_opening; new_exchange_launch; promotion_launch; spin_off_announcement
+19,19,0.000733,0.154623,0.227126,0.000113,0.694737,0.203841,business_recovery; economic_recovery; market_rebound; market_recovery; recovery
+3,21,0.00081,0.138015,0.129101,0.000112,0.561905,0.43477,demand_surge; holiday_sales; holiday_sales_report; holiday_season_sales; new_purchase
+39,722,0.027855,0.003647,0.053095,0.000102,0.101662,0.076795,labor_cost_increase; price_drop; price_target; price_target_increase; price_target_raise
+58,33,0.001273,0.071956,0.186343,9.2e-05,0.439394,0.369225,catastrophe_loss_report; customer_satisfaction_report; economic_data_release; industry_loss_report; market_share_report
+8,12,0.000463,0.197035,0.253814,9.1e-05,-0.15,0.572276,flexible_work_arrangements; labor_agreement; labor_dispute; labor_negotiations; staff_cuts
+18,17,0.000656,0.116137,0.105106,7.6e-05,0.394118,0.484429,cloud_competition; cloud_computing_strategy; cloud_lag; cryptocurrency_adoption; cryptocurrency_backing
+7,13,0.000502,0.148938,0.108669,7.5e-05,0.476923,0.342286,automation_adoption; digital_technology_success; digital_transformation; disruption_and_innovation; menu_innovation
+30,13,0.000502,0.119964,0.09916,6e-05,0.361538,0.624547,covid_19_impact; health_crisis_impact; pandemic_growth; pandemic_impact; pandemic_recovery
+41,4,0.000154,0.38146,0.110916,5.9e-05,0.575,0.248747,artificial_intelligence_adoption; investment_in_ai; investment_in_artificial_intelligence
+11,11,0.000424,0.137578,0.149627,5.8e-05,0.509091,0.477597,auction; bond_offering; contract_award; contract_ratification; deal_cancellation
+12,5,0.000193,0.174076,0.091313,3.4e-05,0.8,0.0,green_bond_issuance; renewable_energy_commitment; renewable_energy_initiative; sustainability_efforts; sustainability_initiative
+56,4,0.000154,0.151485,0.055559,2.3e-05,0.65,0.15,bank_performance; banking_sector_stability; banking_system_support
+35,2,7.7e-05,0.249593,0.249593,1.9e-05,0.5,0.1,licensing_agreement
+44,12,0.000463,0.020766,0.029547,1e-05,0.425,0.129904,high_options_trading_volume; options_contract_availability; options_contract_update; options_trading; options_trading_activity

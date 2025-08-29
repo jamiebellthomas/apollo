@@ -1,0 +1,44 @@
+cluster_id,fact_count,sample_count,percentage_of_samples,avg_attention_score,std_attention_score,avg_sentiment,std_sentiment,sample_event_types
+46,1,1,0.526316,1.0,0.0,-0.7,0.0,revenue_impact
+36,3,3,1.578947,0.649508,0.258493,-0.266667,0.329983,asset_divestiture; stock_sales
+51,2,2,1.052632,0.602692,0.397308,0.3,0.1,competitive_strategy; market_competition
+2,5,3,1.578947,0.566142,0.376263,0.64,0.10198,partnership
+1,10,7,3.684211,0.498181,0.33968,0.33,0.275862,comparison; industry_comparison; market_comparison; peer_comparison; quality_score_comparison
+45,3,2,1.052632,0.451773,0.10481,0.6,0.141421,new_exchange_launch; promotion_launch
+29,3,2,1.052632,0.448359,0.113406,0.633333,0.124722,product_launch
+38,5,5,2.631579,0.308912,0.153139,0.18,0.767854,bearish_outlook; market_outlook
+47,6,3,1.578947,0.29942,0.179672,0.3,0.503322,executive_expectations_and_valuation; valuation_analysis; valuation_comparison; valuation_update
+20,2,2,1.052632,0.281634,0.212078,0.65,0.15,infrastructure_build_out; investment_expansion
+16,1,1,0.526316,0.264826,0.0,0.5,0.0,financial_performance
+3,2,2,1.052632,0.261509,0.124997,0.65,0.15,sales_growth; sales_performance
+34,29,10,5.263158,0.252883,0.207938,0.293103,0.563812,industry_challenges; industry_concerns; industry_development; industry_group_performance; industry_outlook
+22,2,2,1.052632,0.235634,0.095979,0.75,0.05,executive_change; executive_commentary
+26,3,2,1.052632,0.231359,0.072649,-0.5,0.0,financial_support; loan_deferrals; loan_loss_projections
+37,3,3,1.578947,0.226119,0.187816,0.1,0.637704,illicit_funds_scandal; other
+17,19,9,4.736842,0.222241,0.223276,0.463158,0.267956,earnings_announcement; upcoming_earnings
+54,3,1,0.526316,0.188868,0.00697,-0.766667,0.04714,credit_rating_change
+40,7,5,2.631579,0.178003,0.166568,0.471429,0.373073,investment_portfolio_update; operational_update; ownership_update; portfolio_rebalancing; sector_upgrade
+15,4,3,1.578947,0.167706,0.148749,0.675,0.129904,acquisition; acquisition_approval
+13,10,2,1.052632,0.158456,0.28052,-0.77,0.09,lawsuit; money_laundering_allegations
+25,4,3,1.578947,0.150084,0.104941,-0.65,0.111803,housing_start_decline; industry_slowdown; market_decline; sector_downgrade_warning
+31,1,1,0.526316,0.133586,0.0,-0.7,0.0,sell_signal
+53,109,12,6.315789,0.116638,0.211961,-0.19633,0.729952,market_analysis; market_fluctuation; market_impact; market_movement; market_rally
+30,5,3,1.578947,0.073002,0.011241,0.78,0.074833,vaccine_development; vaccine_speculation; vaccine_trial_results
+0,1,1,0.526316,0.072656,0.0,0.8,0.0,industry_growth
+19,2,2,1.052632,0.06896,0.003209,0.8,0.0,recovery; stock_recovery
+33,2,2,1.052632,0.068201,0.001008,0.6,0.0,sector_rotation; technical_breakout
+14,3,1,0.526316,0.067824,0.001194,0.6,0.08165,merger; merger_approval; merger_completion
+57,3,1,0.526316,0.067665,0.000185,0.833333,0.04714,business_restart; business_restart_plan; business_resumption
+23,1,1,0.526316,0.067517,0.0,0.7,0.0,business_update
+21,1,1,0.526316,0.067448,0.0,0.9,0.0,operations_resumption
+6,50,4,2.105263,0.067045,0.23751,0.738,0.218989,dividend_announcement; dividend_growth; dividend_update
+55,35,4,2.105263,0.056306,0.191871,0.165714,0.225443,regulatory_approval; regulatory_challenge; regulatory_change; regulatory_update; regulatory_warning
+10,175,10,5.263158,0.041466,0.172164,-0.128,0.240865,analyst_comment; analyst_insight; analyst_recommendation; analyst_target_price; analyst_target_price_update
+48,104,4,2.105263,0.040982,0.18066,0.585577,0.068526,ipo_announcement; ipo_funding; ipo_investment; ipo_preparation; ipo_underwriting
+4,119,5,2.631579,0.03691,0.131823,0.521008,0.141346,institutional_investment; investment; investment_and_outlook; investment_move; investment_opportunity
+32,210,10,5.263158,0.034772,0.146934,-0.39381,0.356183,stock_performance; stock_price_increase; stock_price_movement; stock_purchase; stock_ranking
+50,70,3,1.578947,0.025238,0.143835,0.511429,0.06875,award_recognition; conference_participation; diversity_initiative
+59,369,6,3.157895,0.015503,0.119039,-0.191328,0.078472,etf_inclusion; etf_inflow; etf_launch; etf_outflow
+9,126,5,2.631579,0.013895,0.098297,-0.769048,0.207198,earnings_estimate_revisions; earnings_guidance; earnings_outlook; earnings_warning
+39,712,2,1.052632,0.001495,0.037524,0.100702,0.018725,price_target; target_price_increase
+49,1,1,0.526316,0.0,0.0,-0.5,0.0,brexit_impact
