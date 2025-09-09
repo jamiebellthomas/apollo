@@ -150,6 +150,137 @@ def create_temporal_plot(facts_data, directory_path, prediction_type):
     
     print(f"    ✅ Saved {prediction_type} plot: {output_file.name}")
 
+def create_aggregated_temporal_attention_plot():
+    """Create a single aggregated plot combining data from all heterognn5 directories."""
+    print("🔍 Creating aggregated temporal attention plot...")
+    
+    # Find all HeteroGNN5 results directories
+    results_dir = Path("../Results/heterognn5")
+    if not results_dir.exists():
+        print("❌ Results directory not found!")
+        return
+    
+    directories = sorted([d for d in results_dir.iterdir() if d.is_dir()])
+    print(f"Found {len(directories)} directories to aggregate...")
+    
+    # Collect data from all directories
+    all_positive_facts = []
+    all_negative_facts = []
+    all_overall_facts = []
+    
+    for directory in directories:
+        print(f"  Processing {directory.name}...")
+        samples_file = directory / "samples_all_facts.json"
+        if not samples_file.exists():
+            print(f"    ❌ No samples_all_facts.json found")
+            continue
+        
+        try:
+            with open(samples_file, 'r') as f:
+                data = json.load(f)
+            
+            # Separate facts by prediction type
+            for sample_key, sample_data in data.items():
+                predicted_label = sample_data['sample_metadata']['predicted_label']
+                sample_date = sample_data['sample_metadata'].get('sample_date')
+                
+                if not sample_date:
+                    continue
+                
+                for fact in sample_data['all_facts']:
+                    time_diff = calculate_time_difference(fact['date'], sample_date)
+                    
+                    if time_diff is not None:
+                        fact_data = {
+                            'time_diff': time_diff,
+                            'attention_score': fact['attention_score'],
+                            'event_type': fact['event_type'],
+                            'date': fact['date'],
+                            'sample_date': sample_date,
+                            'source_dir': directory.name
+                        }
+                        
+                        all_overall_facts.append(fact_data)
+                        
+                        if predicted_label == 1:
+                            all_positive_facts.append(fact_data)
+                        else:
+                            all_negative_facts.append(fact_data)
+            
+            print(f"    ✅ Loaded {len(data)} samples")
+            
+        except Exception as e:
+            print(f"    ❌ Error loading {directory.name}: {e}")
+    
+    print(f"\n📊 Aggregated data summary:")
+    print(f"  Total positive facts: {len(all_positive_facts)}")
+    print(f"  Total negative facts: {len(all_negative_facts)}")
+    print(f"  Total overall facts: {len(all_overall_facts)}")
+    
+    # Create aggregated plots
+    if all_positive_facts:
+        create_aggregated_temporal_plot(all_positive_facts, "positive")
+    
+    if all_negative_facts:
+        create_aggregated_temporal_plot(all_negative_facts, "negative")
+    
+    if all_overall_facts:
+        create_aggregated_temporal_plot(all_overall_facts, "overall")
+    
+    print(f"\n✅ Aggregated temporal attention analysis completed!")
+
+def create_aggregated_temporal_plot(facts_data, prediction_type):
+    """Create an aggregated temporal attention plot combining data from all directories."""
+    # Extract data
+    time_diffs = [f['time_diff'] for f in facts_data]
+    attention_scores = [f['attention_score'] for f in facts_data]
+    
+    print(f"    📈 Creating {prediction_type} aggregated plot...")
+    print(f"      Data ranges:")
+    print(f"        Time differences: {min(time_diffs)} to {max(time_diffs)} days")
+    print(f"        Attention scores: {min(attention_scores):.6f} to {max(attention_scores):.6f}")
+    
+    # Create the plot
+    plt.figure(figsize=(14, 10))
+    
+    # Create scatter plot with transparency
+    plt.scatter(time_diffs, attention_scores, alpha=0.4, s=15, color='blue', label='Facts')
+    
+    # Add trend line
+    if len(time_diffs) > 1:
+        z = np.polyfit(time_diffs, attention_scores, 1)
+        p = np.poly1d(z)
+        plt.plot(time_diffs, p(time_diffs), "r--", alpha=0.8, linewidth=3, label='Linear Trend Line')
+    
+    # Calculate correlation
+    correlation = np.corrcoef(time_diffs, attention_scores)[0, 1]
+    
+    # Customize the plot with LaTeX formatting
+    plt.xlabel(r'\textbf{Days from Fact Date to Announcement Date}', fontsize=14)
+    plt.ylabel(r'\textbf{Attention Weighting}', fontsize=14)
+    title_text = (r'\textbf{Aggregated Attention Weighting vs Time Difference - ' + prediction_type.title() + 
+                  r' Predictions}' + '\n' +
+                  r'\textbf{Correlation: }' + f'{correlation:.3f}' + r' | \textbf{Total Facts: }' + f'{len(facts_data)}' + 
+                  r' | \textbf{Combined from Multiple HeteroGNN5 Runs}')
+    plt.title(title_text, fontsize=16)
+    
+    # Add grid
+    plt.grid(True, alpha=0.3)
+    
+    # Add legend
+    plt.legend(fontsize=12)
+    
+    # Save the plot
+    output_file = Path("../Results/heterognn5") / f"aggregated_temporal_attention_{prediction_type}.png"
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"      ✅ Saved aggregated {prediction_type} plot: {output_file.name}")
+    
+    # Print summary statistics
+    print(f"        Total facts: {len(facts_data)}")
+    print(f"        Correlation: {correlation:.3f}")
+
 def main():
     """Main function to process all directories."""
     print("🔍 Generating temporal attention plots...")
@@ -171,6 +302,10 @@ def main():
             print(f"❌ Error processing {directory.name}: {e}")
     
     print(f"\n✅ Temporal attention analysis completed for {len(directories)} directories!")
+    
+    # Create aggregated plot
+    print(f"\n🔗 Creating aggregated analysis...")
+    create_aggregated_temporal_attention_plot()
 
 if __name__ == "__main__":
     main()

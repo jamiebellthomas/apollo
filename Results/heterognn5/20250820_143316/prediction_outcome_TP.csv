@@ -1,0 +1,47 @@
+cluster_id,fact_count,sample_count,avg_attention_score,std_attention_score,avg_sentiment,std_sentiment,sample_event_types
+39,711,7,0.001406,0.037477,0.1,0.0,price_target
+59,372,11,0.016201,0.113746,-0.18871,0.093507,etf_holdings; etf_inclusion; etf_inflow; etf_launch; etf_outflow
+2,344,8,0.015011,0.113882,0.307267,0.054768,partnership
+32,207,11,0.030205,0.132819,-0.42029,0.308767,growth_stock_analysis; stock_performance; stock_pick; stock_price_increase; stock_price_movement
+9,129,11,0.016175,0.10237,-0.745736,0.282571,earnings_disappointment; earnings_estimate_revisions; earnings_forecast; earnings_guidance; earnings_outlook
+4,111,8,0.038821,0.138733,0.535586,0.10319,investment; investment_announcement; investment_endorsement; investment_opportunity; investment_portfolio
+48,104,9,0.040598,0.17949,0.585577,0.068526,ipo_announcement; ipo_funding; ipo_investment; ipo_preparation; ipo_underwriting
+53,100,11,0.129938,0.23835,-0.258,0.716544,market_analysis; market_fluctuation; market_impact; market_movement; market_rally
+50,71,11,0.027201,0.14316,0.515493,0.076265,award_recognition; conference_participation; diversity_initiative; social_responsibility_recognition
+38,38,11,0.075512,0.20386,0.410526,0.218595,investment_outlook; market_outlook
+34,29,11,0.309396,0.254467,0.237931,0.556103,industry_challenges; industry_concerns; industry_development; industry_outlook; industry_performance
+17,19,11,0.18918,0.218105,0.521053,0.280186,earnings_and_sales_report; earnings_announcement; upcoming_earnings
+10,15,11,0.37736,0.363541,0.593333,0.276807,analyst_comment; analyst_insight; analyst_recommendation; analyst_target_price; analyst_target_price_update
+55,7,11,0.198653,0.328936,0.285714,0.394348,regulatory_approval; regulatory_challenge; regulatory_change; regulatory_update
+1,6,9,0.426646,0.276935,0.25,0.281366,comparison; industry_comparison; market_comparison; sector_comparison
+15,5,11,0.134534,0.137139,0.74,0.12,acquisition; acquisition_approval; acquisitions_and_expansion; acquisitions_and_revenue_diversification
+40,5,10,0.158302,0.186806,0.38,0.538145,guidance_revision; operational_update; portfolio_rebalancing; sector_upgrade
+6,4,11,0.552032,0.448807,0.1,0.367423,dividend_announcement
+30,4,10,0.075071,0.013049,0.8,0.070711,vaccine_development; vaccine_speculation; vaccine_trial_results
+43,4,9,0.30498,0.174616,0.475,0.454835,economic_stimulus; government_subsidy; legislative_support; tax_legislation
+47,4,4,0.418144,0.082006,0.1,0.504975,executive_expectations_and_valuation; valuation_comparison
+14,3,11,0.064238,0.000685,0.6,0.08165,merger; merger_approval; merger_completion
+33,3,11,0.07184,0.004098,0.566667,0.04714,sector_rotation; stress_test_results; technical_breakout
+23,3,10,0.066494,0.000484,0.833333,0.094281,business_update; market_opportunity
+57,3,10,0.062685,5.2e-05,0.833333,0.04714,business_restart; business_restart_plan; business_resumption
+29,3,8,0.453668,0.110943,0.7,0.141421,product_launch
+54,3,6,0.184484,0.005321,-0.766667,0.04714,credit_rating_change
+25,3,6,0.186382,0.099595,-0.7,0.08165,industry_slowdown; market_decline; sector_downgrade_warning
+26,3,6,0.23102,0.069614,-0.5,0.0,financial_support; loan_deferrals; loan_loss_projections
+22,3,4,0.543125,0.323227,0.466667,0.262467,executive_change; executive_commentary; executive_movement
+49,2,11,0.119941,0.119941,-0.5,0.0,brexit_impact; trade_restrictions
+19,2,10,0.072036,0.007259,0.8,0.0,recovery; stock_recovery
+36,2,9,0.673707,0.326293,-0.15,0.35,asset_divestiture; stock_sales
+20,2,9,0.28937,0.21092,0.55,0.05,infrastructure_build_out; market_expansion
+46,2,5,0.534518,0.465482,0.1,0.8,revenue_estimate; revenue_impact
+45,2,5,0.403882,0.119699,0.5,0.0,new_exchange_launch
+58,2,3,0.066972,0.000299,0.85,0.05,sales_report
+21,1,10,0.063464,0.0,0.9,0.0,operations_resumption
+7,1,8,0.328727,0.0,0.7,0.0,technology_transition
+31,1,8,0.168094,0.0,0.8,0.0,unusual_trading_volume
+37,1,7,0.502018,0.0,0.5,0.0,other
+13,1,4,1.0,0.0,-0.5,0.0,lawsuit
+5,1,3,0.100562,0.0,0.2,0.0,supply_chain_issue
+16,1,2,0.073698,0.0,0.8,0.0,construction_spending_increase
+3,1,1,0.388432,0.0,0.5,0.0,sales_performance
+51,1,1,1.0,0.0,0.2,0.0,market_competition

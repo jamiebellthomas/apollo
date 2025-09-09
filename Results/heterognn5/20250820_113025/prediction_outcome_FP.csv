@@ -1,0 +1,35 @@
+cluster_id,fact_count,sample_count,avg_attention_score,std_attention_score,avg_sentiment,std_sentiment,sample_event_types
+48,172,4,0.008452,0.079841,0.5,0.0,ipo_preparation; ipo_underwriting
+10,162,4,0.012998,0.097016,-0.181481,0.134817,analyst_expectations; analyst_recommendation; analyst_target_price_update; analyst_upgrade
+6,50,4,0.071149,0.24072,0.774,0.082,dividend_announcement; dividend_growth; dividend_increase; dividend_update
+55,32,5,0.040281,0.135804,0.171875,0.1858,regulatory_response; regulatory_risk; regulatory_ruling; regulatory_update
+35,21,5,0.02449,0.109522,0.6,0.0,licensing_agreement
+53,15,5,0.191299,0.227957,0.32,0.515364,market_analysis; market_commentary; market_fluctuation; market_movement; market_performance
+13,11,5,0.073859,0.016826,-0.627273,0.395637,dispute_resolution; lawsuit; money_laundering_allegations
+34,11,5,0.214516,0.129583,0.618182,0.371283,industry_group_performance; industry_performance; industry_recognition; industry_trend; industry_turnaround
+17,10,4,0.205117,0.172331,0.67,0.219317,earnings_announcement; earnings_report
+32,7,3,0.359326,0.309148,0.742857,0.104978,stock_ranking; stock_recommendation
+2,6,5,0.322842,0.312946,0.683333,0.146249,partnership
+29,4,5,0.286517,0.08586,0.625,0.108972,product_launch
+1,4,3,0.602198,0.39872,0.45,0.217945,market_comparison; peer_comparison; quality_score_comparison
+4,4,3,0.318123,0.32893,0.525,0.334477,institutional_investment; investment_recommendation; investment_strategy
+36,4,3,0.209866,0.188256,-0.275,0.147902,shareholder_update; stock_sales
+47,3,5,0.215177,0.110391,0.566667,0.169967,valuation_analysis; valuation_comparison
+51,3,5,0.136612,0.046274,0.066667,0.286744,competition_risk; competitive_analysis; competitive_strategy
+40,3,4,0.334709,0.16531,0.066667,0.188562,ownership_update; portfolio_rebalancing
+26,3,4,0.379076,0.082835,0.3,0.141421,bond_issuance; bond_issue; bond_sale
+9,2,5,0.199279,0.087687,0.5,0.3,earnings_expectation; earnings_outlook
+38,2,4,0.215174,0.146034,0.85,0.05,economic_outlook; market_outlook
+37,2,2,0.096107,0.029507,-0.1,0.7,illicit_funds_scandal; other
+46,1,5,0.277936,0.0,0.8,0.0,revenue_growth_outlook
+23,1,5,0.1118,0.0,-0.8,0.0,business_failure
+42,1,5,0.106156,0.0,-0.2,0.0,partnership_loss
+54,1,4,0.29095,0.0,0.5,0.0,credit_card_promotion
+45,1,3,0.568841,0.0,0.8,0.0,promotion_launch
+3,1,3,0.144814,0.0,0.8,0.0,sales_growth
+59,1,2,1.0,0.0,0.5,0.0,etf_inflow
+31,1,2,0.121379,0.0,-0.7,0.0,sell_signal
+22,1,1,0.131821,0.0,0.8,0.0,executive_change
+16,1,1,0.27453,0.0,0.5,0.0,financial_performance
+39,1,1,0.065939,0.0,0.6,0.0,target_price_increase
+25,1,1,0.068001,0.0,-0.7,0.0,market_decline

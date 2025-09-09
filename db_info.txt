@@ -209,3 +209,5 @@ Ok, new architecture I want to try tomorrow is edges aren't bidirectional instea
 
 Get reason for high FN number :)
 Look at the training data and see if its unseen, generally analyse training, use cluter analysis to identify key event types to see why loads of FNs are being identified.  
+
+Attention against days since published as a histogram instead of scatter plot. 

@@ -1,0 +1,54 @@
+cluster_id,fact_count,sample_count,avg_attention_score,std_attention_score,avg_sentiment,std_sentiment,sample_event_types
+53,2245,34,0.013275,0.090139,0.66971,0.361659,market_analysis; market_commentary; market_context; market_exit; market_fluctuation
+10,809,34,0.025732,0.141171,0.130161,0.419995,analyst_comment; analyst_commentary; analyst_downgrade; analyst_prediction; analyst_recommendation
+52,447,32,0.008531,0.077663,0.404027,0.322368,natural_disaster; natural_disaster_impact; reputational_damage_management; security_flaw_opportunity; security_patch
+4,346,35,0.052452,0.180196,0.295087,0.170528,competitive_investment; institutional_investment; institutional_investment_change; institutional_investment_update; investment
+17,308,35,0.053169,0.157158,0.565877,0.177148,earnings_announcement; earnings_preview; earnings_report; financial_update; upcoming_earnings
+32,275,35,0.035225,0.143347,0.767273,0.193958,financial_analysis; growth_stock_recommendation; stock_evaluation; stock_movement; stock_opportunity
+59,234,34,0.088248,0.242361,-0.056197,0.276064,etf_analysis; etf_comparison; etf_focus; etf_holdings; etf_holdings_analysis
+34,202,35,0.104846,0.233233,0.55,0.328852,industry_challenges; industry_disruption; industry_insight; industry_outlook; industry_performance
+6,140,32,0.055876,0.190567,0.237857,0.134943,dividend_announcement; dividend_comparison; dividend_growth; dividend_hike; dividend_increase
+42,66,32,0.055485,0.177901,-0.4,0.322396,partnership_cancellation; partnership_expansion; partnership_rumor; partnership_termination; unsubstantiated_partnership_rumor
+2,53,35,0.357886,0.300265,0.575472,0.24333,partnership; potential_partnership
+1,45,35,0.221038,0.293882,0.38,0.233429,comparison; competitive_comparison; financial_comparison; gross_margin_comparison; industry_comparison
+9,44,33,0.105402,0.12361,0.606818,0.425012,earnings_and_rating_upgrade; earnings_beat; earnings_boost; earnings_disappointment; earnings_estimate_revision
+38,42,33,0.092778,0.208804,0.460714,0.160184,investment_outlook; long_term_outlook; market_forecast; market_outlook
+15,36,33,0.190517,0.24585,0.611111,0.269545,acquisition; acquisition_and_expansion; acquisition_and_spinoff; acquisition_announcement; acquisition_offer
+16,33,31,0.035465,0.171774,0.8,0.0,financial_performance; funding_round
+29,29,32,0.315741,0.247837,0.589655,0.250991,counterfeit_product_removal; product_adoption; product_demand; product_launch; product_offering
+23,28,35,0.089482,0.207925,0.289286,0.376392,business_model; business_update; company_outlook; company_overview; company_performance
+51,27,32,0.249197,0.207368,0.062963,0.341183,competition; competition_analysis; competitive_analysis; competitive_landscape; competitive_move
+0,19,34,0.108862,0.11582,0.757895,0.306192,customer_growth; growth_challenges; growth_investments; growth_outlook; growth_plan_announcement
+22,14,28,0.244161,0.335505,0.321429,0.273022,executive_change; executive_hire; executive_movement; executive_praise; executive_statement
+47,13,34,0.144833,0.120564,0.584615,0.210663,undervaluation; undervaluation_opportunity; valuation_analysis; valuation_and_rating; valuation_comparison
+14,10,32,0.202789,0.300943,0.35,0.361248,merger_acquisition; merger_and_acquisition; merger_announcement; merger_comparison; potential_buyout
+20,10,32,0.180894,0.135391,0.49,0.383275,business_expansion; expansion_plans; infrastructure_expansion; manufacturing_expansion; market_expansion
+37,10,20,0.362329,0.344872,0.48,0.3995,crisis_management; government_investigation; hurricane_impact; other; political_development
+19,9,35,0.19066,0.290871,0.666667,0.20548,business_recovery; market_rebound; market_recovery; stock_recovery; travel_recovery
+3,9,35,0.136414,0.084329,0.733333,0.124722,holiday_sales_report; holiday_season_sales; sales Surge; sales_growth; sales_promotion
+55,8,30,0.240433,0.136165,0.075,0.420565,regulatory_compliance; regulatory_issue; regulatory_policy_change; regulatory_ruling; regulatory_update
+33,8,30,0.33972,0.313953,0.525,0.511737,coverage_initiation; divergence_phenomenon; fundamental_analysis; record_volume; reduced_positions
+24,7,27,0.325154,0.135875,0.557143,0.555125,federal_reserve_announcement; federal_reserve_rate_hike; interest_rate_hike
+43,7,18,0.314628,0.122904,0.514286,0.394348,government_subsidy; legislation_passage; legislative_support; tax_legislation; tax_reform
+28,6,31,0.233081,0.23778,0.6,0.493288,analyst_rating; ratings_downgrade; stock_rating
+21,6,26,0.276831,0.196819,-0.6,0.182574,advertising_pause; customer_loss; product_discontinuation; service_outage; sold_out
+30,5,35,0.182959,0.084536,-0.02,0.567098,health_crisis_impact; pandemic_impact; pandemic_recovery; pandemic_related_decline
+49,5,20,0.445721,0.303054,-0.42,0.381576,export_restrictions; geopolitical_event; geopolitical_tensions; travel_restrictions
+7,4,35,0.195626,0.105273,0.45,0.55,digital_transformation; technical_performance_improvement; technology_adoption; technology_transition
+25,4,34,0.588717,0.415146,-0.425,0.389711,consumer_spending_decrease; economic_downturn; market_decline; market_plunge
+57,4,31,0.40843,0.384263,0.55,0.25,business_restructuring; management_change; spin_off_preparations; turnaround_efforts
+36,4,29,0.533202,0.466798,0.55,0.229129,asset_sale; equity_raising; shareholder_value_enhancement
+58,4,26,0.082156,0.07356,0.675,0.178536,sales_report; volume_report
+40,4,24,0.454782,0.362321,-0.525,0.376663,downgrade; sector_update
+12,3,35,0.106077,0.05896,0.8,0.0,renewable_energy_commitment; sustainability_efforts; sustainability_initiative
+44,3,29,0.02263,0.032004,0.5,0.0,options_contract_update; options_trading
+5,3,18,0.117482,0.053916,0.466667,0.249444,production_milestone; supply_agreement; supply_chain_issue
+11,2,33,0.334197,0.231049,0.35,0.15,potential_sale; reinsurance_deal
+48,2,31,0.288413,0.212899,0.5,0.0,ipo_preparation; ipo_underwriting
+13,1,30,0.545055,0.0,-0.8,0.0,counterfeiting_scheme
+31,1,29,0.071316,0.0,0.8,0.0,insider_buying
+18,1,19,0.515516,0.0,0.8,0.0,subscription_model_adoption
+27,1,13,0.780222,0.0,0.1,0.0,index_composition
+46,1,10,0.066693,0.0,0.2,0.0,revenue_growth_comparison
+50,1,9,1.0,0.0,0.8,0.0,adoption
+8,1,7,0.314856,0.0,0.5,0.0,flexible_work_arrangements

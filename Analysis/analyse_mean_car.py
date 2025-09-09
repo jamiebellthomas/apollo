@@ -655,6 +655,214 @@ def get_results_directories(results_base_dir="Results"):
         print(f"Error discovering results directories: {e}")
         return []
 
+def plot_all_models_subplots(eps_car_data, days_before, days_after, save_path=None):
+    """
+    Plot mean and spread of all 5 models as 5 subplots on the same graph.
+    
+    Args:
+        eps_car_data (list): List of CAR data for EPS surprises
+        days_before (int): Number of days before event
+        days_after (int): Number of days after event
+        save_path (str): Optional path to save the plot
+    """
+    print(f"\n" + "="*80)
+    print("GENERATING ALL MODELS SUBPLOTS")
+    print("="*80)
+    
+    # Get all model types from Results directory
+    results_base = "Results"
+    model_types = []
+    
+    if os.path.exists(results_base):
+        for item in os.listdir(results_base):
+            item_path = os.path.join(results_base, item)
+            if os.path.isdir(item_path):
+                model_types.append(item)
+    
+    # Sort to ensure consistent ordering
+    model_types.sort()
+    
+    print(f"Found model types: {model_types}")
+    
+    # Process each model type
+    model_type_results = {}
+    
+    for model_type in model_types:
+        print(f"\nProcessing {model_type}...")
+        model_type_path = os.path.join(results_base, model_type)
+        
+        # Get all subdirectories for this model type
+        model_dirs = []
+        for subitem in os.listdir(model_type_path):
+            subitem_path = os.path.join(model_type_path, subitem)
+            if os.path.isdir(subitem_path):
+                model_dirs.append(subitem_path)
+        
+        print(f"Found {len(model_dirs)} directories for {model_type}")
+        
+        # Process all directories for this model type
+        model_car_data_list = []
+        
+        for results_dir in model_dirs:
+            model_name, car_data_list, total_predictions = process_model_results_from_cache(results_dir, eps_car_data)
+            if model_name and car_data_list:
+                model_car_data_list.extend(car_data_list)
+        
+        if model_car_data_list:
+            model_type_results[model_type] = model_car_data_list
+            print(f"Successfully processed {len(model_car_data_list)} events for {model_type}")
+    
+    # Create subplots - use standard 2x3 grid
+    fig, axes = plt.subplots(2, 3, figsize=(20, 12))
+    axes = axes.flatten()
+    
+    # Set up the plot
+    relative_days = np.arange(-days_before, days_after + 1)
+    
+    # Define colors for different model types
+    colors = ['blue', 'green', 'red', 'purple', 'orange']
+    
+    # Plot each model type in its own subplot
+    for i, (model_type, car_data_list) in enumerate(model_type_results.items()):
+        if i >= 5:  # Only use first 5 subplots
+            break
+            
+        ax = axes[i]
+        
+        if car_data_list:
+            # Get all individual model directories for this type
+            model_type_path = os.path.join(results_base, model_type)
+            model_dirs = []
+            for subitem in os.listdir(model_type_path):
+                subitem_path = os.path.join(model_type_path, subitem)
+                if os.path.isdir(subitem_path):
+                    model_dirs.append(subitem_path)
+            
+            # Calculate mean CAR for each individual model
+            individual_model_means = []
+            for results_dir in model_dirs:
+                model_name, car_data_list, total_predictions = process_model_results_from_cache(results_dir, eps_car_data)
+                if model_name and car_data_list:
+                    model_cars = [data['car'] for data in car_data_list if data is not None]
+                    if model_cars:
+                        # Calculate mean CAR for this individual model
+                        model_mean_car = np.mean(model_cars, axis=0)
+                        individual_model_means.append(model_mean_car)
+            
+            if individual_model_means:
+                # Calculate mean and std of the individual model means
+                individual_model_means = np.array(individual_model_means)
+                model_type_mean_car = np.mean(individual_model_means, axis=0)
+                model_type_std_car = np.std(individual_model_means, axis=0)
+                
+                color = colors[i % len(colors)]
+                
+                # Plot mean CAR
+                ax.plot(relative_days, model_type_mean_car, 
+                        color=color, linewidth=3, marker='o', markersize=6)
+                
+                # Add shaded area for standard deviation (spread)
+                ax.fill_between(relative_days, 
+                                model_type_mean_car - model_type_std_car, 
+                                model_type_mean_car + model_type_std_car, 
+                                alpha=0.3, 
+                                color=color)
+                
+                # Add EPS surprises baseline if available
+                if eps_car_data:
+                    eps_cars = [data['car'] for data in eps_car_data if data is not None]
+                    if eps_cars:
+                        avg_eps_car = np.mean(eps_cars, axis=0)
+                        ax.plot(relative_days, avg_eps_car, 
+                                color='red', linewidth=2, marker='^', markersize=4, linestyle='--', alpha=0.8)
+                
+                # Add test set average CAR
+                test_avg_car, test_relative_days = calculate_test_set_average_car()
+                if test_avg_car is not None and test_relative_days is not None:
+                    ax.plot(test_relative_days, test_avg_car, 
+                            color='orange', linewidth=2, marker='d', markersize=4, linestyle=':', alpha=0.8)
+                
+                # Add vertical line at event date
+                ax.axvline(x=0, color='black', linestyle='--', alpha=0.7)
+                
+                # Add horizontal line at zero
+                ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+                
+                # Customize the subplot
+                ax.set_xlabel(r'Days Relative to Event ($t$)', fontsize=12)
+                ax.set_ylabel(r'Cumulative Abnormal Returns (CAR)', fontsize=12)
+                
+                # Create title in "Model X" format
+                model_number = model_type.replace('heterognn', '')
+                if model_number == '':
+                    title = 'Model 1'
+                else:
+                    title = f'Model {model_number}'
+                ax.set_title(title, fontsize=14, fontweight='bold')
+                
+                ax.grid(True, alpha=0.3)
+                
+                # Add shaded areas for different periods
+                ax.axvspan(0, MID_POINT_START, alpha=0.1, color='blue')
+                ax.axvspan(MID_POINT_START, days_after, alpha=0.1, color='green')
+                
+                # Print summary statistics for this model type
+                pre_event_car = model_type_mean_car[DAYS_BEFORE]
+                post_event_car = model_type_mean_car[-1]
+                car_change = post_event_car - pre_event_car
+                
+                print(f"\n{model_type} Statistics ({len(individual_model_means)} models):")
+                print(f"  Mean Pre-Event CAR (Day 0): {pre_event_car:.6f}")
+                print(f"  Mean Post-Event CAR (Final): {post_event_car:.6f}")
+                print(f"  Mean Total CAR Change: {car_change:.6f}")
+    
+    # Use the 6th subplot space for the legend
+    legend_ax = axes[5]
+    legend_ax.set_xticks([])
+    legend_ax.set_yticks([])
+    legend_ax.set_frame_on(False)
+    
+    # Minimize whitespace for tighter layout
+    plt.subplots_adjust(left=0.06, right=0.94, top=0.94, bottom=0.1, wspace=0.15, hspace=0.25)
+    
+    # Add overall title
+    fig.suptitle(r"$\text{Mean CAR Analysis: All Models - Individual Subplots}$", fontsize=16, fontweight='bold')
+    
+    # Add comprehensive legend explaining all elements
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    
+    # Create legend elements
+    legend_elements = [
+        # Model lines
+        Line2D([0], [0], color='gray', linewidth=3, marker='o', markersize=6, label='Model Mean CAR'),
+        Line2D([0], [0], color='gray', alpha=0.3, linewidth=10, label='Model +/-1 Standard Deviation'),
+        
+        # Baseline lines
+        Line2D([0], [0], color='red', linewidth=2, linestyle='--', marker='^', markersize=4, label='Positive EPS Surprises Average'),
+        Line2D([0], [0], color='orange', linewidth=2, linestyle=':', marker='d', markersize=4, label='Test Set Average'),
+        
+        # Period shading
+        Patch(facecolor='blue', alpha=0.1, label='Early Post-Event Period (0 to 15 days)'),
+        Patch(facecolor='green', alpha=0.1, label='Late Post-Event Period (15 to 40 days)'),
+        
+        # Event markers
+        Line2D([0], [0], color='black', linestyle='--', linewidth=2, label='Event Date (t = 0)'),
+        Line2D([0], [0], color='black', linestyle='-', linewidth=1, alpha=0.3, label='Zero Baseline')
+    ]
+    
+    # Add legend in the 6th subplot space
+    legend_ax.legend(handles=legend_elements, loc='center', fontsize=16, frameon=True, fancybox=True, shadow=True)
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"All models subplots saved to {save_path}")
+    else:
+        plt.savefig("Analysis/all_models_subplots.png", dpi=300, bbox_inches='tight')
+        print("All models subplots saved to Analysis/all_models_subplots.png")
+    
+    plt.show()
+
 def main():
     """Main function to run the mean CAR analysis."""
     
@@ -697,14 +905,17 @@ def main():
         return
     
     # Plot mean CAR with shred
-    print(f"\n" + "="*80)
-    print("GENERATING MEAN CAR ANALYSIS PLOT")
-    print("="*80)
+    # print(f"\n" + "="*80)
+    # print("GENERATING MEAN CAR ANALYSIS PLOT")
+    # print("="*80)
     
-    plot_mean_car_with_shred(model_results, eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
+    # plot_mean_car_with_shred(model_results, eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
     
     # Plot all model types separately
-    plot_all_model_types_separate(eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
+    # plot_all_model_types_separate(eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
+    
+    # Plot all models as subplots
+    plot_all_models_subplots(eps_car_data, DAYS_BEFORE, DAYS_AFTER, SAVE_PLOT_PATH)
     
     # Print summary statistics
     print(f"\n" + "="*80)

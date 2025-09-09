@@ -1,0 +1,20 @@
+cluster_id,avg_attention_score,std_attention_score,avg_sentiment,std_sentiment,total_facts,sample_count,avg_facts_per_sample,negative_attention_rank,positive_attention_rank,sample_event_types
+25,0.735189,0.374688,-0.333333,0.410961,96,862,0.11,2,29,consumer_spending_decrease; economic_downturn; market_plunge
+49,0.604545,0.395603,-0.5,0.3,64,840,0.08,3,31,geopolitical_tensions; travel_restrictions
+57,0.520576,0.382821,0.566667,0.286744,96,861,0.11,13,50,business_restructuring; management_change; turnaround_efforts
+48,0.501427,0.007669,0.5,0.0,32,847,0.04,40,54,ipo_preparation
+18,0.498303,0.015854,0.8,0.0,32,861,0.04,31,N/A,subscription_model_adoption
+40,0.457388,0.361246,-0.525,0.376663,128,860,0.15,48,20,downgrade; sector_update
+33,0.408353,0.341593,0.435233,0.560904,193,854,0.23,33,41,coverage_initiation; fundamental_analysis; record_volume; reduced_positions; sector_movement
+36,0.372846,0.465029,0.538983,0.224754,118,856,0.14,6,4,asset_sale; equity_raising; shareholder_value_enhancement
+19,0.37311,0.381922,0.5,0.219089,120,840,0.14,19,45,market_rebound; market_recovery; stock_recovery; travel_recovery
+43,0.360048,0.009209,0.8,0.0,32,859,0.04,9,15,tax_reform
+2,0.358124,0.300652,0.569309,0.254211,1274,863,1.48,43,33,partnership; potential_partnership
+24,0.344438,0.115304,0.533333,0.576217,204,864,0.24,36,35,federal_reserve_announcement; federal_reserve_rate_hike; inflation_report; interest_rate_hike; interest_rate_hike_adjustment
+8,0.330885,0.015571,0.5,0.0,32,848,0.04,15,14,flexible_work_arrangements
+37,0.310718,0.290123,0.55019,0.238958,263,860,0.31,50,23,crisis_management; hurricane_impact; ma_speculation; other; spin_off
+1,0.308853,0.29638,0.332471,0.282923,773,864,0.89,38,6,comparison; competitive_comparison; financial_comparison; gross_margin_comparison; industry_comparison
+29,0.304262,0.244359,0.566344,0.291048,517,861,0.6,25,8,product_demand; product_launch; product_offering
+55,0.300611,0.122371,0.02,0.324962,160,863,0.19,7,43,regulatory_compliance; regulatory_issue; regulatory_ruling; regulatory_update
+21,0.273974,0.190337,-0.6,0.182574,192,854,0.22,5,49,advertising_pause; customer_loss; product_discontinuation; service_outage; sold_out
+28,0.260828,0.258419,0.360227,0.651491,88,848,0.1,17,36,analyst_rating; ratings_downgrade

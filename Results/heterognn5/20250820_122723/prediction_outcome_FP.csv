@@ -1,0 +1,24 @@
+cluster_id,fact_count,sample_count,avg_attention_score,std_attention_score,avg_sentiment,std_sentiment,sample_event_types
+55,29,1,0.021645,0.114536,0.2,0.0,regulatory_update
+17,27,3,0.071104,0.208215,0.322222,0.219989,earnings_announcement
+34,18,3,0.10031,0.253545,0.6,0.057735,industry_trend; industry_trends; sector_performance
+13,11,1,0.066669,0.000501,-0.790909,0.028748,lawsuit; money_laundering_allegations
+2,5,3,0.22438,0.080377,0.5,0.167332,partnership
+40,5,2,0.123756,0.151707,0.62,0.24,brokerage_update; brokerage_upgrade; portfolio_rebalancing; upgrade
+32,4,3,0.048905,0.028243,0.45,0.55,stock_price_increase; stock_price_movement; stock_recommendation; stock_undervaluation
+43,4,3,0.287311,0.130803,0.525,0.476314,government_subsidy; legislative_support; tax_credit_extension; tax_legislation
+53,4,3,0.073422,0.013744,0.0,0.8,market_fluctuation; market_performance; market_volatility
+25,4,3,0.0585,0.035835,-0.7,0.070711,market_decline; stock_price_decrease
+15,3,3,0.08206,0.11605,0.233333,0.46428,acquisition; portfolio_acquisition
+22,3,3,0.167069,0.100844,0.066667,0.612826,executive_change; executive_movement; executive_statement
+38,3,2,0.152781,0.124209,0.733333,0.094281,market_outlook
+59,2,3,0.516793,0.029501,-0.2,0.0,etf_outflow
+31,2,3,0.064825,0.000477,0.55,0.05,insider_buying; pre_market_trading
+46,2,3,0.532455,0.467545,0.0,0.8,reduced_profit_forecast; revenue_guidance_and_dividend_increase
+9,2,3,0.31005,0.244941,-0.2,0.7,earnings_disappointment; earnings_forecast_revision
+6,2,2,0.23727,0.104069,0.5,0.0,dividend_announcement; dividend_update
+10,2,2,0.39812,0.334259,0.7,0.2,analyst_target_price_update; analyst_upgrade
+5,1,3,0.095881,0.0,0.2,0.0,supply_chain_issue
+58,1,2,0.432732,0.0,-0.5,0.0,economic_data_release
+16,1,1,0.275415,0.0,0.5,0.0,financial_performance
+36,1,1,0.534767,0.0,-0.5,0.0,stock_sales

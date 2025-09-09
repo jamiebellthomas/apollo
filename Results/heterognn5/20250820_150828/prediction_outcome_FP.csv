@@ -1,0 +1,40 @@
+cluster_id,fact_count,sample_count,avg_attention_score,std_attention_score,avg_sentiment,std_sentiment,sample_event_types
+10,294,8,0.0397,0.170509,-0.00034,0.247642,analyst_comment; analyst_expectation; analyst_expectations; analyst_recommendation; analyst_target_price_update
+48,172,6,0.008583,0.080255,0.5,0.0,ipo_preparation; ipo_underwriting
+37,91,3,0.026243,0.149089,0.693407,0.064283,other; spinoff
+55,53,8,0.033561,0.123815,0.022642,0.234433,regulatory_response; regulatory_risk; regulatory_ruling; regulatory_threat; regulatory_update
+6,50,6,0.071664,0.241467,0.774,0.082,dividend_announcement; dividend_growth; dividend_increase; dividend_update
+17,32,6,0.103529,0.209548,0.365625,0.26054,earnings_announcement; earnings_report; upcoming_earnings
+4,19,8,0.271576,0.181508,0.473684,0.347687,institutional_investment; investment_opportunity; investment_portfolio; investment_recommendation; investment_strategy
+34,16,8,0.264951,0.223356,0.60625,0.30917,industry_group_performance; industry_outlook; industry_recognition; industry_trend; industry_trends
+53,12,7,0.221468,0.244328,0.125,0.598783,market_analysis; market_commentary; market_fluctuation; market_movement; market_performance
+2,11,7,0.280105,0.241854,0.6,0.180907,partnership
+32,10,8,0.370717,0.351817,0.67,0.313209,stock_exit; stock_performance; stock_ranking; stock_recommendation; stock_undervaluation
+13,8,7,0.07771,0.020249,-0.5625,0.447039,dispute_resolution; lawsuit; money_laundering_allegations
+1,6,4,0.500756,0.362303,0.5,0.191485,competitor_comparison; market_comparison; peer_comparison; quality_score_comparison
+47,5,7,0.180272,0.102465,0.56,0.135647,valuation_analysis; valuation_comparison; valuation_update
+9,5,7,0.216156,0.184711,0.3,0.648074,earnings_disappointment; earnings_expectation; earnings_forecast_revision; earnings_outlook; earnings_revision
+59,5,5,0.569958,0.221835,0.22,0.342929,etf_holdings; etf_inflow; etf_outflow; etf_performance_review
+16,4,8,0.646003,0.355129,0.375,0.294746,expense_ratio_reduction; financial_performance
+25,4,8,0.286963,0.357561,-0.7,0.070711,market_decline; sector_downgrade_warning; stock_price_decrease
+36,4,8,0.241344,0.169556,-0.275,0.147902,institutional_ownership_change; shareholder_update; stock_sales
+29,4,7,0.306888,0.10911,0.625,0.108972,product_launch
+43,4,5,0.28311,0.139959,0.525,0.476314,government_subsidy; legislative_support; tax_credit_extension; tax_legislation
+22,4,5,0.37781,0.37063,0.075,0.530919,executive_background; executive_change; executive_movement; executive_statement
+51,3,7,0.144028,0.042747,0.066667,0.286744,competition_risk; competitive_analysis; competitive_strategy
+26,3,6,0.390384,0.120549,0.3,0.141421,bond_issuance; bond_issue; bond_sale
+31,3,5,0.083369,0.022267,0.133333,0.590668,insider_buying; pre_market_trading; sell_signal
+39,2,8,0.533673,0.466327,0.35,0.25,price_target; target_price_increase
+46,2,7,0.650188,0.349812,0.0,0.8,reduced_profit_forecast; revenue_growth_outlook
+38,2,6,0.230843,0.136428,0.85,0.05,economic_outlook; market_outlook
+40,2,6,0.46817,0.02401,0.2,0.0,portfolio_rebalancing
+35,1,7,0.481688,0.0,0.6,0.0,licensing_agreement
+23,1,7,0.113589,0.0,-0.8,0.0,business_failure
+42,1,7,0.113359,0.0,-0.2,0.0,partnership_loss
+56,1,6,0.091492,0.0,0.8,0.0,bank_performance
+54,1,6,0.291692,0.0,0.5,0.0,credit_card_promotion
+24,1,6,0.076202,0.0,0.7,0.0,interest_rate_sensitive_benefits
+5,1,5,0.103255,0.0,0.2,0.0,supply_chain_issue
+15,1,5,0.227126,0.0,-0.4,0.0,portfolio_acquisition
+45,1,4,0.578838,0.0,0.8,0.0,promotion_launch
+3,1,4,0.136409,0.0,0.8,0.0,sales_growth
