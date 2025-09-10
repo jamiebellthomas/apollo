@@ -2,6 +2,7 @@
 Configuration file for the Thesis
 This will store all environment variables and constants used throughout the project.
 """
+# all api keys have been regenerated and redacted for security purposes
 # --- Credentials ---
 EMAIL = "REDACTED"
 COMPANY_NAME = "REDACTED"
